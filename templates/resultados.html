@@ -4,7 +4,7 @@
 
 {% block extra_head %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 
 <style>
   :root {
@@ -1109,34 +1109,283 @@ function updateRoomsTable(filtered) {
   document.getElementById('roomTableCount').textContent = vis + ' habitaciones';
 }
 
-function appendSheet(wb, name, rows) {
-  const ws = XLSX.utils.aoa_to_sheet(rows);
+/* ─────────────────────────────────────────────────────────────
+   EXPORTACIÓN EXCEL CON FORMATO
+───────────────────────────────────────────────────────────── */
 
-  const colWidths = rows[0].map((_, colIndex) => {
+function sanitizeFileName(value) {
+  return String(value || 'reporte')
+    .toLowerCase()
+    .replace(/\s+/g, '_')
+    .replace(/[^\w\-]/g, '');
+}
+
+function getExcelColLetter(colNumber) {
+  let letter = '';
+  let n = colNumber;
+
+  while (n > 0) {
+    const mod = (n - 1) % 26;
+    letter = String.fromCharCode(65 + mod) + letter;
+    n = Math.floor((n - mod) / 26);
+  }
+
+  return letter;
+}
+
+function getUseRealFill(value) {
+  const n = Number(value || 0);
+
+  if (n >= 80) {
+    return { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD4EDDA' } };
+  }
+
+  if (n >= 50) {
+    return { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF3CD' } };
+  }
+
+  return { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8D7DA' } };
+}
+
+function getUseRealFont(value) {
+  const n = Number(value || 0);
+
+  if (n >= 80) {
+    return { bold: true, color: { argb: 'FF155724' } };
+  }
+
+  if (n >= 50) {
+    return { bold: true, color: { argb: 'FF856404' } };
+  }
+
+  return { bold: true, color: { argb: 'FF842029' } };
+}
+
+function styleCellBase(cell) {
+  cell.alignment = {
+    vertical: 'middle',
+    horizontal: 'center',
+    wrapText: true
+  };
+
+  cell.border = {
+    top: { style: 'thin', color: { argb: 'FFD9D9D9' } },
+    left: { style: 'thin', color: { argb: 'FFD9D9D9' } },
+    bottom: { style: 'thin', color: { argb: 'FFD9D9D9' } },
+    right: { style: 'thin', color: { argb: 'FFD9D9D9' } }
+  };
+}
+
+function setColumnWidths(ws, rows) {
+  if (!rows.length) return;
+
+  const colCount = Math.max(...rows.map(row => row.length));
+
+  for (let c = 1; c <= colCount; c++) {
     let maxLen = 10;
 
     rows.forEach(row => {
-      const value = row[colIndex] === undefined || row[colIndex] === null ? '' : String(row[colIndex]);
+      const value = row[c - 1] === undefined || row[c - 1] === null ? '' : String(row[c - 1]);
       maxLen = Math.max(maxLen, value.length);
     });
 
-    return { wch: Math.min(maxLen + 2, 45) };
-  });
-
-  ws['!cols'] = colWidths;
-
-  XLSX.utils.book_append_sheet(wb, ws, name.substring(0, 31));
+    ws.getColumn(c).width = Math.min(Math.max(maxLen + 2, 12), 45);
+  }
 }
 
-function downloadExcelReport() {
-  const filtered = getFiltered();
-  const kpis = getKpiPayload(filtered);
+function addStyledTableSheet(workbook, config) {
+  const {
+    name,
+    title,
+    subtitle,
+    headers,
+    rows,
+    useRealColumns = [],
+    numericColumns = [],
+    percentColumns = [],
+    pendingColumn = null
+  } = config;
 
-  const wb = XLSX.utils.book_new();
+  const ws = workbook.addWorksheet(name.substring(0, 31), {
+    views: [
+      {
+        state: 'frozen',
+        ySplit: 4
+      }
+    ]
+  });
 
-  appendSheet(wb, 'Resumen', [
-    ['Campo', 'Valor'],
-    ['Periodo', REPORT_PERIOD],
+  const totalCols = headers.length;
+  const lastCol = getExcelColLetter(totalCols);
+
+  ws.mergeCells(`A1:${lastCol}1`);
+  ws.getCell('A1').value = title;
+  ws.getCell('A1').font = {
+    bold: true,
+    color: { argb: 'FFFFFFFF' },
+    size: 16
+  };
+  ws.getCell('A1').fill = {
+    type: 'pattern',
+    pattern: 'solid',
+    fgColor: { argb: 'FFB42318' }
+  };
+  ws.getCell('A1').alignment = {
+    horizontal: 'center',
+    vertical: 'middle'
+  };
+  ws.getRow(1).height = 28;
+
+  ws.mergeCells(`A2:${lastCol}2`);
+  ws.getCell('A2').value = subtitle;
+  ws.getCell('A2').font = {
+    italic: true,
+    color: { argb: 'FF666666' },
+    size: 11
+  };
+  ws.getCell('A2').alignment = {
+    horizontal: 'center',
+    vertical: 'middle'
+  };
+
+  ws.addRow([]);
+  const headerRow = ws.addRow(headers);
+
+  headerRow.eachCell(cell => {
+    cell.font = {
+      bold: true,
+      color: { argb: 'FFFFFFFF' }
+    };
+    cell.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FF8A1A12' }
+    };
+    cell.alignment = {
+      horizontal: 'center',
+      vertical: 'middle',
+      wrapText: true
+    };
+    cell.border = {
+      top: { style: 'thin', color: { argb: 'FF8A1A12' } },
+      left: { style: 'thin', color: { argb: 'FF8A1A12' } },
+      bottom: { style: 'thin', color: { argb: 'FF8A1A12' } },
+      right: { style: 'thin', color: { argb: 'FF8A1A12' } }
+    };
+  });
+
+  ws.getRow(4).height = 24;
+
+  rows.forEach((rowData, index) => {
+    const row = ws.addRow(rowData);
+    const isEven = index % 2 === 0;
+
+    row.eachCell((cell, colNumber) => {
+      styleCellBase(cell);
+
+      if (isEven) {
+        cell.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FFF8F9FA' }
+        };
+      }
+
+      if (numericColumns.includes(colNumber)) {
+        cell.numFmt = '#,##0.0';
+      }
+
+      if (percentColumns.includes(colNumber)) {
+        cell.numFmt = '0.0"%"';
+      }
+
+      if (useRealColumns.includes(colNumber)) {
+        cell.fill = getUseRealFill(cell.value);
+        cell.font = getUseRealFont(cell.value);
+      }
+
+      if (cell.value === 'Pendiente') {
+        cell.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FFE9ECEF' }
+        };
+        cell.font = {
+          color: { argb: 'FF6C757D' },
+          italic: true
+        };
+      }
+
+      if (pendingColumn && rowData[pendingColumn - 1] === 'Pendiente') {
+        cell.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FFE9ECEF' }
+        };
+        cell.font = {
+          color: { argb: 'FF6C757D' },
+          italic: true
+        };
+      }
+    });
+  });
+
+  ws.autoFilter = {
+    from: 'A4',
+    to: `${lastCol}4`
+  };
+
+  setColumnWidths(ws, [headers, ...rows]);
+
+  ws.pageSetup = {
+    orientation: 'landscape',
+    fitToPage: true,
+    fitToWidth: 1,
+    fitToHeight: 0
+  };
+
+  return ws;
+}
+
+function addStyledSummarySheet(workbook, kpis) {
+  const ws = workbook.addWorksheet('Resumen', {
+    views: [
+      {
+        state: 'frozen',
+        ySplit: 5
+      }
+    ]
+  });
+
+  ws.mergeCells('A1:D1');
+  ws.getCell('A1').value = 'Reporte Hotel Analytics';
+  ws.getCell('A1').font = {
+    bold: true,
+    color: { argb: 'FFFFFFFF' },
+    size: 18
+  };
+  ws.getCell('A1').fill = {
+    type: 'pattern',
+    pattern: 'solid',
+    fgColor: { argb: 'FFB42318' }
+  };
+  ws.getCell('A1').alignment = {
+    horizontal: 'center',
+    vertical: 'middle'
+  };
+  ws.getRow(1).height = 30;
+
+  ws.mergeCells('A2:D2');
+  ws.getCell('A2').value = `Periodo: ${REPORT_PERIOD} | ${getFilterSubtitle()}`;
+  ws.getCell('A2').font = {
+    italic: true,
+    color: { argb: 'FF666666' }
+  };
+  ws.getCell('A2').alignment = {
+    horizontal: 'center'
+  };
+
+  const rows = [
     ['Módulo', fMod || 'Todos'],
     ['Empresa', fEmp === '__sin__' ? 'Sin asignar' : (fEmp || 'Todas')],
     ['Turno', fTurno || 'Todos'],
@@ -1146,50 +1395,172 @@ function downloadExcelReport() {
     ['Camas reales filtro', kpis.camas_reales],
     ['Personas asignadas', kpis.asignados],
     ['Personas-día', kpis.personas_dia],
-    ['Uso real %', kpis.uso_capacidad_real],
-  ]);
+    ['Uso real %', kpis.uso_capacidad_real]
+  ];
 
-  appendSheet(wb, 'Uso diario', [
-    ['Día', 'Estado', 'Personas presentes', 'Habitaciones ocupadas', 'Camas reales filtro', 'Uso real %'],
-    ...buildUsoDiarioPayload(filtered).map(r => [
+  ws.addRow([]);
+  ws.addRow(['Campo', 'Valor']);
+
+  const header = ws.getRow(4);
+
+  header.eachCell(cell => {
+    cell.font = {
+      bold: true,
+      color: { argb: 'FFFFFFFF' }
+    };
+    cell.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FF8A1A12' }
+    };
+    styleCellBase(cell);
+  });
+
+  rows.forEach((item, index) => {
+    const row = ws.addRow(item);
+
+    row.eachCell((cell, colNumber) => {
+      styleCellBase(cell);
+
+      if (index % 2 === 0) {
+        cell.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FFF8F9FA' }
+        };
+      }
+
+      if (colNumber === 1) {
+        cell.font = {
+          bold: true,
+          color: { argb: 'FF333333' }
+        };
+      }
+
+      if (item[0] === 'Uso real %' && colNumber === 2) {
+        cell.numFmt = '0.0"%"';
+        cell.fill = getUseRealFill(item[1]);
+        cell.font = getUseRealFont(item[1]);
+      }
+    });
+  });
+
+  ws.getColumn(1).width = 28;
+  ws.getColumn(2).width = 28;
+  ws.getColumn(3).width = 18;
+  ws.getColumn(4).width = 18;
+
+  return ws;
+}
+
+async function downloadExcelReport() {
+  const filtered = getFiltered();
+  const kpis = getKpiPayload(filtered);
+
+  const workbook = new ExcelJS.Workbook();
+
+  workbook.creator = 'Hotel Analytics';
+  workbook.created = new Date();
+  workbook.modified = new Date();
+
+  addStyledSummarySheet(workbook, kpis);
+
+  addStyledTableSheet(workbook, {
+    name: 'Uso diario',
+    title: 'Uso diario según filtros',
+    subtitle: `${REPORT_PERIOD} | ${getFilterSubtitle()}`,
+    headers: [
+      'Día',
+      'Estado',
+      'Personas presentes',
+      'Habitaciones ocupadas',
+      'Camas reales filtro',
+      'Uso real %'
+    ],
+    rows: buildUsoDiarioPayload(filtered).map(r => [
       r.dia,
       r.estado,
       r.personas,
       r.habitaciones_ocupadas,
       r.camas_reales,
-      r.uso_real,
-    ])
-  ]);
+      r.uso_real
+    ]),
+    numericColumns: [5],
+    percentColumns: [6],
+    useRealColumns: [6],
+    pendingColumn: 2
+  });
 
-  appendSheet(wb, 'Resumen módulos', [
-    ['Módulo', 'Habitaciones', 'Camas reales', 'Asignados', 'Días ocupados', 'Personas-día', 'Uso real %'],
-    ...buildModuloPayload(filtered).map(r => [
+  addStyledTableSheet(workbook, {
+    name: 'Resumen módulos',
+    title: 'Uso real por módulo',
+    subtitle: `${REPORT_PERIOD} | ${getFilterSubtitle()}`,
+    headers: [
+      'Módulo',
+      'Habitaciones',
+      'Camas reales',
+      'Asignados',
+      'Días ocupados',
+      'Personas-día',
+      'Uso real %'
+    ],
+    rows: buildModuloPayload(filtered).map(r => [
       r.modulo,
       r.habitaciones,
       r.camas_reales,
       r.asignados,
       r.dias_ocupados,
       r.personas_dia,
-      r.uso_real,
-    ])
-  ]);
+      r.uso_real
+    ]),
+    numericColumns: [3],
+    percentColumns: [7],
+    useRealColumns: [7]
+  });
 
-  appendSheet(wb, 'Resumen empresas', [
-    ['Empresa', 'Habitaciones', 'Asignados', 'Camas reales', 'Personas-día', 'Días perdidos', 'Uso real %'],
-    ...buildEmpresaPayload(filtered).map(r => [
+  addStyledTableSheet(workbook, {
+    name: 'Resumen empresas',
+    title: 'Uso real por empresa',
+    subtitle: `${REPORT_PERIOD} | ${getFilterSubtitle()}`,
+    headers: [
+      'Empresa',
+      'Habitaciones',
+      'Asignados',
+      'Camas reales',
+      'Personas-día',
+      'Días perdidos',
+      'Uso real %'
+    ],
+    rows: buildEmpresaPayload(filtered).map(r => [
       r.empresa,
       r.habitaciones,
       r.asignados,
       r.camas_reales,
       r.personas_dia,
       r.dias_perdidos,
-      r.uso_real,
-    ])
-  ]);
+      r.uso_real
+    ]),
+    numericColumns: [4],
+    percentColumns: [7],
+    useRealColumns: [7]
+  });
 
-  appendSheet(wb, 'Detalle habitaciones', [
-    ['Módulo', 'Habitación', 'Camas reales', 'Días ocupados', 'Días vacíos', 'Uso real %', 'Empresas', 'Turnos', 'Asignados'],
-    ...buildHabitacionesPayload(filtered).map(r => [
+  addStyledTableSheet(workbook, {
+    name: 'Detalle habitaciones',
+    title: 'Detalle por habitación',
+    subtitle: `${REPORT_PERIOD} | ${getFilterSubtitle()}`,
+    headers: [
+      'Módulo',
+      'Habitación',
+      'Camas reales',
+      'Días ocupados',
+      'Días vacíos',
+      'Uso real %',
+      'Empresas',
+      'Turnos',
+      'Asignados'
+    ],
+    rows: buildHabitacionesPayload(filtered).map(r => [
       r.modulo,
       r.habitacion,
       r.camas_reales,
@@ -1198,26 +1569,67 @@ function downloadExcelReport() {
       r.uso_real,
       r.empresas,
       r.turnos,
-      r.asignados,
-    ])
-  ]);
+      r.asignados
+    ]),
+    numericColumns: [3],
+    percentColumns: [6],
+    useRealColumns: [6]
+  });
 
-  appendSheet(wb, 'Habitación día', [
-    ['Módulo', 'Habitación', 'Camas reales', ...DAY_LABELS.map(d => 'Día ' + d)],
-    ...buildHabitacionDiaPayload(filtered).map(r => [
+  addStyledTableSheet(workbook, {
+    name: 'Habitación día',
+    title: 'Uso por habitación y día',
+    subtitle: `${REPORT_PERIOD} | ${getFilterSubtitle()}`,
+    headers: [
+      'Módulo',
+      'Habitación',
+      'Camas reales',
+      ...DAY_LABELS.map(d => 'Día ' + d)
+    ],
+    rows: buildHabitacionDiaPayload(filtered).map(r => [
       r.modulo,
       r.habitacion,
       r.camas_reales,
-      ...r.dias,
-    ])
-  ]);
+      ...r.dias
+    ]),
+    numericColumns: [3],
+    pendingColumn: null
+  });
 
-  const cleanPeriod = REPORT_PERIOD
-    .toLowerCase()
-    .replace(/\s+/g, '_')
-    .replace(/[^\w\-]/g, '');
+  workbook.eachSheet(ws => {
+    ws.properties.defaultRowHeight = 18;
 
-  XLSX.writeFile(wb, `reporte_hotel_analytics_${cleanPeriod}.xlsx`);
+    ws.eachRow(row => {
+      row.eachCell(cell => {
+        if (typeof cell.value === 'number') {
+          cell.alignment = {
+            horizontal: 'center',
+            vertical: 'middle'
+          };
+        }
+      });
+    });
+  });
+
+  const buffer = await workbook.xlsx.writeBuffer();
+
+  const blob = new Blob(
+    [buffer],
+    {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    }
+  );
+
+  const cleanPeriod = sanitizeFileName(REPORT_PERIOD);
+  const cleanFilter = sanitizeFileName(getFilterSubtitle());
+
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = `reporte_hotel_analytics_${cleanPeriod}_${cleanFilter}.xlsx`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(link.href);
 }
 
 document.addEventListener('DOMContentLoaded', () => {
