@@ -4,82 +4,182 @@
 
 {% block extra_head %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+
 <style>
-  :root { --aramark-red: #B42318; --aramark-dark: #8a1a12; }
+  :root {
+    --aramark-red: #B42318;
+    --aramark-dark: #8a1a12;
+  }
 
   .pct-badge {
-    display:inline-block; min-width:60px; text-align:center;
-    font-weight:700; border-radius:20px; padding:2px 10px; font-size:.82rem;
+    display: inline-block;
+    min-width: 60px;
+    text-align: center;
+    font-weight: 700;
+    border-radius: 20px;
+    padding: 2px 10px;
+    font-size: .82rem;
   }
-  .pct-high { background:#d4edda; color:#155724; }
-  .pct-mid  { background:#fff3cd; color:#856404; }
-  .pct-low  { background:#f8d7da; color:#842029; }
 
-  /* ── Filter bar ── */
+  .pct-high {
+    background: #d4edda;
+    color: #155724;
+  }
+
+  .pct-mid {
+    background: #fff3cd;
+    color: #856404;
+  }
+
+  .pct-low {
+    background: #f8d7da;
+    color: #842029;
+  }
+
   .filter-bar {
-    background:#fff; border:1px solid #dee2e6; border-radius:.5rem;
-    padding:.75rem 1rem; margin-bottom:1.25rem;
-    display:flex; flex-wrap:wrap; gap:.75rem; align-items:flex-end;
+    background: #fff;
+    border: 1px solid #dee2e6;
+    border-radius: .5rem;
+    padding: .75rem 1rem;
+    margin-bottom: 1.25rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: .75rem;
+    align-items: flex-end;
   }
-  .filter-bar label { font-size:.78rem; font-weight:600; color:#555; margin-bottom:2px; display:block; }
-  .filter-bar select { font-size:.82rem; min-width:160px; }
+
+  .filter-bar label {
+    font-size: .78rem;
+    font-weight: 600;
+    color: #555;
+    margin-bottom: 2px;
+    display: block;
+  }
+
+  .filter-bar select {
+    font-size: .82rem;
+    min-width: 160px;
+  }
+
   .filter-bar .badge-count {
-    background:var(--aramark-red); color:#fff;
-    font-size:.75rem; padding:4px 10px; border-radius:20px;
+    background: var(--aramark-red);
+    color: #fff;
+    font-size: .75rem;
+    padding: 4px 10px;
+    border-radius: 20px;
   }
-  .btn-reset { font-size:.82rem; }
 
-  /* ── KPI tiles ── */
+  .btn-reset {
+    font-size: .82rem;
+  }
+
   .stat-card {
-    background:#fff; border-left:5px solid var(--aramark-red);
-    border-radius:.5rem; padding:.9rem 1.1rem;
-    box-shadow:0 1px 4px rgba(0,0,0,.08);
+    background: #fff;
+    border-left: 5px solid var(--aramark-red);
+    border-radius: .5rem;
+    padding: .9rem 1.1rem;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, .08);
+    height: 100%;
   }
-  .stat-card .stat-num { font-size:1.9rem; font-weight:700; color:var(--aramark-red); line-height:1; }
-  .stat-card .stat-lbl { font-size:.78rem; color:#666; margin-top:.2rem; }
 
-  /* ── Charts ── */
-  .chart-wrap { position:relative; height:280px; }
+  .stat-card .stat-num {
+    font-size: 1.65rem;
+    font-weight: 700;
+    color: var(--aramark-red);
+    line-height: 1;
+  }
 
-  /* ── Tables ── */
-  .table thead th { background:var(--aramark-red); color:#fff; font-size:.82rem; }
-  .table tbody td { font-size:.82rem; vertical-align:middle; }
-  .progress { height:7px; border-radius:4px; }
-  .progress-bar { background:var(--aramark-red) !important; }
+  .stat-card .stat-lbl {
+    font-size: .75rem;
+    color: #666;
+    margin-top: .2rem;
+  }
 
-  .badge-emp { background:#198754; color:#fff; font-size:.72rem; margin:1px; }
-  .badge-sin { background:#6c757d; color:#fff; font-size:.72rem; }
-  .badge-turno { background:#0d6efd; color:#fff; font-size:.72rem; margin:1px; }
+  .chart-wrap {
+    position: relative;
+    height: 280px;
+  }
+
+  .table thead th {
+    background: var(--aramark-red);
+    color: #fff;
+    font-size: .82rem;
+    vertical-align: middle;
+  }
+
+  .table tbody td {
+    font-size: .82rem;
+    vertical-align: middle;
+  }
+
+  .progress {
+    height: 7px;
+    border-radius: 4px;
+  }
+
+  .progress-bar {
+    background: var(--aramark-red) !important;
+  }
+
+  .badge-emp {
+    background: #198754;
+    color: #fff;
+    font-size: .72rem;
+    margin: 1px;
+  }
+
+  .badge-sin {
+    background: #6c757d;
+    color: #fff;
+    font-size: .72rem;
+  }
+
+  .badge-turno {
+    background: #0d6efd;
+    color: #fff;
+    font-size: .72rem;
+    margin: 1px;
+  }
 </style>
 {% endblock %}
 
 {% block content %}
 
-<!-- ── Panel diagnóstico ──────────────────────────────────────────────────── -->
 {% set mi = r.match_info %}
+
 {% if mi.matched == 0 %}
 <div class="alert alert-danger mb-3">
-  <h6 class="fw-bold"><i class="bi bi-exclamation-triangle-fill me-2"></i>Sin coincidencias entre archivos</h6>
+  <h6 class="fw-bold">
+    <i class="bi bi-exclamation-triangle-fill me-2"></i>Sin coincidencias entre archivos
+  </h6>
+
   <p class="mb-2 small">
     Se leyeron <strong>{{ mi.hotel_rows }}</strong> personas en Hotelería y
     <strong>{{ mi.censo_rooms }}</strong> habitaciones en Censo, pero no se cruzó ninguna.
     Revisa que los valores de Módulo y Habitación sean consistentes entre ambos archivos.
   </p>
+
   <div class="row g-2 small">
     <div class="col-md-6">
-      <strong>Claves Hotelería (muestra normalizada):</strong>
+      <strong>Claves Hotelería, muestra normalizada:</strong>
       <ul class="mb-0 mt-1">
-        {% for k in mi.hotel_sample %}<li><code>MOD={{ k.mod }} | HAB={{ k.hab }}</code></li>{% endfor %}
+        {% for k in mi.hotel_sample %}
+          <li><code>MOD={{ k.mod }} | HAB={{ k.hab }}</code></li>
+        {% endfor %}
       </ul>
     </div>
+
     <div class="col-md-6">
-      <strong>Claves Censo (muestra normalizada):</strong>
+      <strong>Claves Censo, muestra normalizada:</strong>
       <ul class="mb-0 mt-1">
-        {% for k in mi.censo_sample %}<li><code>MOD={{ k.mod }} | HAB={{ k.hab }}</code></li>{% endfor %}
+        {% for k in mi.censo_sample %}
+          <li><code>MOD={{ k.mod }} | HAB={{ k.hab }}</code></li>
+        {% endfor %}
       </ul>
     </div>
   </div>
 </div>
+
 {% elif mi.matched < mi.censo_rooms %}
 <div class="alert alert-warning mb-3 small py-2">
   <i class="bi bi-info-circle me-1"></i>
@@ -88,78 +188,97 @@
 </div>
 {% endif %}
 
-<!-- ── Barra de filtros ───────────────────────────────────────────────────── -->
 <div class="filter-bar">
   <div>
     <label for="filtMod">Módulo</label>
     <select id="filtMod" class="form-select form-select-sm" onchange="applyFilters()">
       <option value="">Todos los módulos</option>
       {% for m in r.modulo_names %}
-      <option value="{{ m }}">{{ m }}</option>
+        <option value="{{ m }}">{{ m }}</option>
       {% endfor %}
     </select>
   </div>
+
   <div>
     <label for="filtEmp">Empresa</label>
     <select id="filtEmp" class="form-select form-select-sm" onchange="applyFilters()">
       <option value="">Todas las empresas</option>
       {% for e in r.company_names %}
-      <option value="{{ e }}">{{ e }}</option>
+        <option value="{{ e }}">{{ e }}</option>
       {% endfor %}
       <option value="__sin__">Sin asignar</option>
     </select>
   </div>
+
   <div>
     <label for="filtTurno">Turno</label>
     <select id="filtTurno" class="form-select form-select-sm" onchange="applyFilters()">
       <option value="">Todos los turnos</option>
       {% for t in r.turno_names %}
-      <option value="{{ t }}">{{ t }}</option>
+        <option value="{{ t }}">{{ t }}</option>
       {% endfor %}
     </select>
   </div>
+
   <div class="d-flex align-items-end gap-2">
     <button class="btn btn-outline-secondary btn-sm btn-reset" onclick="resetFilters()">
       <i class="bi bi-x-circle me-1"></i>Limpiar
     </button>
+
     <span class="badge-count" id="countBadge">{{ r.rooms | length }} hab.</span>
   </div>
 </div>
 
-<!-- ── KPIs (reactivos) ───────────────────────────────────────────────────── -->
 <div class="row g-3 mb-4" id="kpiRow">
-  <div class="col-6 col-md-3">
+  <div class="col-6 col-md-2">
     <div class="stat-card">
       <div class="stat-num" id="kpiHab">{{ r.total_habitaciones }}</div>
       <div class="stat-lbl"><i class="bi bi-door-open me-1"></i>Habitaciones</div>
     </div>
   </div>
-  <div class="col-6 col-md-3">
+
+  <div class="col-6 col-md-2">
     <div class="stat-card">
       <div class="stat-num" id="kpiCamas">{{ r.total_camas }}</div>
       <div class="stat-lbl"><i class="bi bi-person me-1"></i>Camas estimadas</div>
     </div>
   </div>
-  <div class="col-6 col-md-3">
+
+  <div class="col-6 col-md-2">
+    <div class="stat-card">
+      <div class="stat-num" id="kpiCapReal">{{ r.total_camas_reales }}</div>
+      <div class="stat-lbl"><i class="bi bi-building me-1"></i>Camas reales</div>
+    </div>
+  </div>
+
+  <div class="col-6 col-md-2">
     <div class="stat-card">
       <div class="stat-num" id="kpiAsig">{{ r.total_asignadas }}</div>
       <div class="stat-lbl"><i class="bi bi-people me-1"></i>Personas asignadas</div>
     </div>
   </div>
-  <div class="col-6 col-md-3">
+
+  <div class="col-6 col-md-2">
     <div class="stat-card">
       <div class="stat-num" id="kpiPct">{{ r.pct_ocupacion }}%</div>
-      <div class="stat-lbl"><i class="bi bi-graph-up me-1"></i>Ocupación</div>
+      <div class="stat-lbl"><i class="bi bi-graph-up me-1"></i>Ocupación hab.</div>
+    </div>
+  </div>
+
+  <div class="col-6 col-md-2">
+    <div class="stat-card">
+      <div class="stat-num" id="kpiUsoReal">{{ r.total_pct_cap_real }}%</div>
+      <div class="stat-lbl"><i class="bi bi-speedometer2 me-1"></i>Uso capacidad real</div>
     </div>
   </div>
 </div>
 
-<!-- ── Gráfico comportamiento mensual ────────────────────────────────────── -->
 <div class="card shadow-sm mb-4">
   <div class="card-header card-header-red d-flex justify-content-between align-items-center">
     <span><i class="bi bi-calendar3 me-1"></i> Comportamiento Mensual — Personas por Día</span>
     <span class="small text-white-50" id="chartSubtitle">todos los módulos</span>
   </div>
+
   <div class="card-body">
     <div class="chart-wrap" style="height:240px;">
       <canvas id="chartDiario"></canvas>
@@ -167,55 +286,99 @@
   </div>
 </div>
 
-<!-- ── Gráficos módulo y empresa ──────────────────────────────────────────── -->
 <div class="row g-4 mb-4">
   <div class="col-lg-7">
     <div class="card shadow-sm h-100">
       <div class="card-header card-header-red">
         <i class="bi bi-building me-1"></i> Ocupación por Módulo (%)
       </div>
+
       <div class="card-body">
-        <div class="chart-wrap"><canvas id="chartModulos"></canvas></div>
+        <div class="chart-wrap">
+          <canvas id="chartModulos"></canvas>
+        </div>
       </div>
     </div>
   </div>
+
   <div class="col-lg-5">
     <div class="card shadow-sm h-100">
       <div class="card-header card-header-red">
         <i class="bi bi-briefcase me-1"></i> Días perdidos por Empresa
       </div>
+
       <div class="card-body">
-        <div class="chart-wrap"><canvas id="chartEmpresas"></canvas></div>
+        <div class="chart-wrap">
+          <canvas id="chartEmpresas"></canvas>
+        </div>
       </div>
     </div>
   </div>
 </div>
 
-<!-- ── Tabla módulos ──────────────────────────────────────────────────────── -->
 <div class="card shadow-sm mb-4">
-  <div class="card-header card-header-red"><i class="bi bi-grid-3x3-gap me-1"></i> Resumen por Módulo</div>
+  <div class="card-header card-header-red">
+    <i class="bi bi-grid-3x3-gap me-1"></i> Resumen por Módulo
+  </div>
+
   <div class="card-body p-0">
     <div class="table-responsive">
       <table class="table table-hover table-striped mb-0" id="tblModulos">
-        <thead><tr>
-          <th>Módulo</th><th class="text-center">Habitaciones</th>
-          <th class="text-center">Camas</th><th class="text-center">Asignados</th>
-          <th class="text-center">Días ocup.</th><th class="text-center">Pers./día Σ</th>
-          <th class="text-center">Ocupación</th>
-        </tr></thead>
+        <thead>
+          <tr>
+            <th>Módulo</th>
+            <th class="text-center">Habitaciones</th>
+            <th class="text-center">Camas estimadas</th>
+            <th class="text-center">Camas reales</th>
+            <th class="text-center">Asignados</th>
+            <th class="text-center">Días ocup.</th>
+            <th class="text-center">Pers./día Σ</th>
+            <th class="text-center">Ocupación hab.</th>
+            <th class="text-center">Uso real</th>
+          </tr>
+        </thead>
+
         <tbody>
           {% for m in r.modulos %}
           <tr data-modulo="{{ m.modulo }}">
             <td class="fw-semibold">{{ m.modulo }}</td>
             <td class="text-center">{{ m.habitaciones }}</td>
             <td class="text-center">{{ m.camas }}</td>
+
+            <td class="text-center">
+              {% if m.camas_reales %}
+                {{ m.camas_reales }}
+              {% else %}
+                <span class="text-muted">—</span>
+              {% endif %}
+            </td>
+
             <td class="text-center">{{ m.personas_asignadas }}</td>
             <td class="text-center">{{ m.dias_ocupados }}</td>
             <td class="text-center">{{ m.personas_dia_total }}</td>
+
             <td class="text-center">
               {% set p = m.pct_ocupacion %}
-              <span class="pct-badge {% if p>=80 %}pct-high{% elif p>=50 %}pct-mid{% else %}pct-low{% endif %}">{{ p }}%</span>
-              <div class="progress mt-1"><div class="progress-bar" style="width:{{ p }}%"></div></div>
+              <span class="pct-badge {% if p >= 80 %}pct-high{% elif p >= 50 %}pct-mid{% else %}pct-low{% endif %}">
+                {{ p }}%
+              </span>
+              <div class="progress mt-1">
+                <div class="progress-bar" style="width:{{ p }}%"></div>
+              </div>
+            </td>
+
+            <td class="text-center">
+              {% if m.pct_cap_real is not none %}
+                {% set pr = m.pct_cap_real %}
+                <span class="pct-badge {% if pr >= 80 %}pct-high{% elif pr >= 50 %}pct-mid{% else %}pct-low{% endif %}">
+                  {{ pr }}%
+                </span>
+                <div class="progress mt-1">
+                  <div class="progress-bar" style="width:{{ pr }}%"></div>
+                </div>
+              {% else %}
+                <span class="text-muted">—</span>
+              {% endif %}
             </td>
           </tr>
           {% endfor %}
@@ -225,20 +388,26 @@
   </div>
 </div>
 
-<!-- ── Tabla empresas ─────────────────────────────────────────────────────── -->
 <div class="card shadow-sm mb-4">
   <div class="card-header card-header-red d-flex justify-content-between align-items-center">
     <span><i class="bi bi-briefcase me-1"></i> Ineficiencia por Empresa</span>
     <span class="small text-white-50">ordenado por días perdidos ↓</span>
   </div>
+
   <div class="card-body p-0">
     <div class="table-responsive">
       <table class="table table-hover table-striped mb-0" id="tblEmpresas">
-        <thead><tr>
-          <th>Empresa</th><th class="text-center">Habitaciones</th>
-          <th class="text-center">Personas</th><th class="text-center">Días ocup.</th>
-          <th class="text-center">Días perdidos</th><th class="text-center">Ocupación</th>
-        </tr></thead>
+        <thead>
+          <tr>
+            <th>Empresa</th>
+            <th class="text-center">Habitaciones</th>
+            <th class="text-center">Personas</th>
+            <th class="text-center">Días ocup.</th>
+            <th class="text-center">Días perdidos</th>
+            <th class="text-center">Ocupación</th>
+          </tr>
+        </thead>
+
         <tbody>
           {% for e in r.empresas %}
           <tr data-empresa="{{ e.empresa }}">
@@ -247,9 +416,12 @@
             <td class="text-center">{{ e.personas }}</td>
             <td class="text-center">{{ e.dias_ocupados }}</td>
             <td class="text-center text-danger fw-bold">{{ e.dias_perdidos }}</td>
+
             <td class="text-center">
               {% set p = e.pct_ocupacion %}
-              <span class="pct-badge {% if p>=80 %}pct-high{% elif p>=50 %}pct-mid{% else %}pct-low{% endif %}">{{ p }}%</span>
+              <span class="pct-badge {% if p >= 80 %}pct-high{% elif p >= 50 %}pct-mid{% else %}pct-low{% endif %}">
+                {{ p }}%
+              </span>
             </td>
           </tr>
           {% endfor %}
@@ -259,54 +431,79 @@
   </div>
 </div>
 
-<!-- ── Tabla detalle habitaciones ─────────────────────────────────────────── -->
 <div class="card shadow-sm mb-4">
   <div class="card-header card-header-red">
     <i class="bi bi-door-open me-1"></i> Detalle por Habitación
     <span class="ms-2 small text-white-50" id="roomTableCount"></span>
   </div>
+
   <div class="card-body p-0">
     <div class="table-responsive">
       <table class="table table-hover table-sm mb-0" id="tblRooms">
-        <thead><tr>
-          <th>Módulo</th><th>Habitación</th>
-          <th class="text-center">Camas</th><th class="text-center">Días ocup.</th>
-          <th class="text-center">Días vacíos</th><th class="text-center">Ocupación</th>
-          <th>Empresa(s)</th><th>Turno(s)</th><th>Asignados</th>
-        </tr></thead>
+        <thead>
+          <tr>
+            <th>Módulo</th>
+            <th>Habitación</th>
+            <th class="text-center">Camas</th>
+            <th class="text-center">Días ocup.</th>
+            <th class="text-center">Días vacíos</th>
+            <th class="text-center">Ocupación</th>
+            <th>Empresa(s)</th>
+            <th>Turno(s)</th>
+            <th>Asignados</th>
+          </tr>
+        </thead>
+
         <tbody id="roomsBody">
           {% for room in r.rooms %}
-          <tr data-modulo="{{ room.modulo }}"
-              data-empresas="{{ room.empresas | join('||') | lower }}"
-              data-turnos="{{ room.turnos | join('||') | lower }}"
-              data-asig="{{ room.n_asignados }}">
+          <tr
+            data-modulo="{{ room.modulo }}"
+            data-empresas="{{ room.empresas | join('||') | lower }}"
+            data-turnos="{{ room.turnos | join('||') | lower }}"
+            data-asig="{{ room.n_asignados }}"
+          >
             <td>{{ room.modulo }}</td>
             <td>{{ room.habitacion }}</td>
             <td class="text-center">{{ room.camas_estimadas }}</td>
             <td class="text-center">{{ room.dias_ocupados }}</td>
-            <td class="text-center {% if room.dias_vacios > 0 %}text-danger{% endif %}">{{ room.dias_vacios }}</td>
+
+            <td class="text-center {% if room.dias_vacios > 0 %}text-danger{% endif %}">
+              {{ room.dias_vacios }}
+            </td>
+
             <td class="text-center">
               {% set p = room.pct_ocupacion %}
-              <span class="pct-badge {% if p>=80 %}pct-high{% elif p>=50 %}pct-mid{% else %}pct-low{% endif %}">{{ p }}%</span>
+              <span class="pct-badge {% if p >= 80 %}pct-high{% elif p >= 50 %}pct-mid{% else %}pct-low{% endif %}">
+                {{ p }}%
+              </span>
             </td>
+
             <td>
               {% if room.empresas %}
-                {% for e in room.empresas %}<span class="badge badge-emp">{{ e }}</span>{% endfor %}
+                {% for e in room.empresas %}
+                  <span class="badge badge-emp">{{ e }}</span>
+                {% endfor %}
               {% else %}
                 <span class="badge badge-sin">Sin empresa</span>
               {% endif %}
             </td>
+
             <td>
               {% if room.turnos %}
-                {% for t in room.turnos %}<span class="badge badge-turno">{{ t }}</span>{% endfor %}
+                {% for t in room.turnos %}
+                  <span class="badge badge-turno">{{ t }}</span>
+                {% endfor %}
               {% else %}
                 <span class="text-muted small">—</span>
               {% endif %}
             </td>
+
             <td>
               {% if room.asignados %}
                 {% for p in room.asignados %}
-                  <div class="small">{{ p.nombre }} <span class="text-muted">({{ p.rut }})</span></div>
+                  <div class="small">
+                    {{ p.nombre }} <span class="text-muted">({{ p.rut }})</span>
+                  </div>
                 {% endfor %}
               {% else %}
                 <span class="text-muted small">—</span>
@@ -330,35 +527,43 @@
 
 {% block extra_js %}
 <script>
-// ── Datos del servidor ────────────────────────────────────────────────────
 const TOTAL_DIAS = {{ r.total_dias }};
 const DAY_LABELS = {{ r.day_labels | tojson }};
 const ROOMS_DATA = {{ r.rooms_js | tojson }};
+const MODULE_CAPACITY = {{ r.module_capacity_map | tojson }};
 
-const MOD_LABELS  = {{ r.modulos | map(attribute='modulo')        | list | tojson }};
-const MOD_PCT     = {{ r.modulos | map(attribute='pct_ocupacion') | list | tojson }};
-const EMP_LABELS  = {{ r.empresas[:15] | map(attribute='empresa')       | list | tojson }};
-const EMP_PERDIDOS= {{ r.empresas[:15] | map(attribute='dias_perdidos')  | list | tojson }};
+const MOD_LABELS = {{ r.modulos | map(attribute='modulo') | list | tojson }};
+const MOD_PCT = {{ r.modulos | map(attribute='pct_ocupacion') | list | tojson }};
+const EMP_LABELS = {{ r.empresas[:15] | map(attribute='empresa') | list | tojson }};
+const EMP_PERDIDOS = {{ r.empresas[:15] | map(attribute='dias_perdidos') | list | tojson }};
 
 const ARAMARK = '#B42318';
 
-// ── Estado de filtros ─────────────────────────────────────────────────────
-let fMod = '', fEmp = '', fTurno = '';
+let fMod = '';
+let fEmp = '';
+let fTurno = '';
+
+let chartDiario;
 
 function getFiltered() {
   return ROOMS_DATA.filter(r => {
-    if (fMod   && r.modulo !== fMod) return false;
+    if (fMod && r.modulo !== fMod) return false;
+
     if (fEmp === '__sin__') {
       if (r.n_asignados > 0) return false;
-    } else if (fEmp && !r.empresas.includes(fEmp)) return false;
+    } else if (fEmp && !r.empresas.includes(fEmp)) {
+      return false;
+    }
+
     if (fTurno && !r.turnos.includes(fTurno)) return false;
+
     return true;
   });
 }
 
 function applyFilters() {
-  fMod   = document.getElementById('filtMod').value;
-  fEmp   = document.getElementById('filtEmp').value;
+  fMod = document.getElementById('filtMod').value;
+  fEmp = document.getElementById('filtEmp').value;
   fTurno = document.getElementById('filtTurno').value;
 
   const filtered = getFiltered();
@@ -371,92 +576,122 @@ function applyFilters() {
 }
 
 function resetFilters() {
-  document.getElementById('filtMod').value   = '';
-  document.getElementById('filtEmp').value   = '';
+  document.getElementById('filtMod').value = '';
+  document.getElementById('filtEmp').value = '';
   document.getElementById('filtTurno').value = '';
-  fMod = ''; fEmp = ''; fTurno = '';
+
+  fMod = '';
+  fEmp = '';
+  fTurno = '';
+
   applyFilters();
 }
 
-// ── KPIs ──────────────────────────────────────────────────────────────────
 function updateKPIs(filtered) {
-  const hab   = filtered.length;
-  const camas = filtered.reduce((s, r) => s + r.camas_estimadas, 0);
-  const asig  = filtered.reduce((s, r) => s + r.n_asignados, 0);
-  const ocDias= filtered.reduce((s, r) => s + r.dias_ocupados, 0);
-  const totDias = hab * TOTAL_DIAS;
-  const pct   = totDias ? (ocDias / totDias * 100).toFixed(1) : 0;
+  const hab = filtered.length;
+  const camas = filtered.reduce((s, r) => s + Number(r.camas_estimadas || 0), 0);
+  const asig = filtered.reduce((s, r) => s + Number(r.n_asignados || 0), 0);
+  const ocDias = filtered.reduce((s, r) => s + Number(r.dias_ocupados || 0), 0);
+  const personasDia = filtered.reduce((s, r) => s + Number(r.personas_dia || 0), 0);
 
-  document.getElementById('kpiHab').textContent   = hab;
+  const totDias = hab * TOTAL_DIAS;
+  const pct = totDias ? (ocDias / totDias * 100).toFixed(1) : '0.0';
+
+  const selectedModules = new Set(filtered.map(r => r.modulo));
+  let camasReales = 0;
+
+  selectedModules.forEach(mod => {
+    camasReales += Number(MODULE_CAPACITY[mod] || 0);
+  });
+
+  const usoReal = camasReales && TOTAL_DIAS
+    ? (personasDia / (camasReales * TOTAL_DIAS) * 100).toFixed(1)
+    : '0.0';
+
+  document.getElementById('kpiHab').textContent = hab;
   document.getElementById('kpiCamas').textContent = camas;
-  document.getElementById('kpiAsig').textContent  = asig;
-  document.getElementById('kpiPct').textContent   = pct + '%';
+  document.getElementById('kpiCapReal').textContent = camasReales;
+  document.getElementById('kpiAsig').textContent = asig;
+  document.getElementById('kpiPct').textContent = pct + '%';
+  document.getElementById('kpiUsoReal').textContent = usoReal + '%';
   document.getElementById('countBadge').textContent = hab + ' hab.';
 }
 
-// ── Gráfico diario ────────────────────────────────────────────────────────
-let chartDiario;
-
 function buildDailyTotals(filtered) {
   const totals = new Array(TOTAL_DIAS).fill(0);
-  filtered.forEach(r => r.daily.forEach((v, i) => { totals[i] += v; }));
+
+  filtered.forEach(r => {
+    r.daily.forEach((v, i) => {
+      totals[i] += Number(v || 0);
+    });
+  });
+
   return totals;
 }
 
 function updateDailyChart(filtered) {
   const totals = buildDailyTotals(filtered);
+
   chartDiario.data.datasets[0].data = totals;
 
-  // Subtitle
   let sub = [];
-  if (fMod)   sub.push(fMod);
-  if (fEmp)   sub.push(fEmp === '__sin__' ? 'Sin asignar' : fEmp);
+
+  if (fMod) sub.push(fMod);
+  if (fEmp) sub.push(fEmp === '__sin__' ? 'Sin asignar' : fEmp);
   if (fTurno) sub.push(fTurno);
-  document.getElementById('chartSubtitle').textContent = sub.length ? sub.join(' · ') : 'todos los módulos';
+
+  document.getElementById('chartSubtitle').textContent = sub.length
+    ? sub.join(' · ')
+    : 'todos los módulos';
 
   chartDiario.update();
 }
 
-// ── Tabla habitaciones ────────────────────────────────────────────────────
 function updateRoomsTable(filtered) {
   const filtSet = new Set(filtered.map(r => r.modulo + '|' + r.habitacion));
   const rows = document.querySelectorAll('#roomsBody tr');
+
   let vis = 0;
+
   rows.forEach(row => {
     const k = row.dataset.modulo + '|' + row.cells[1].textContent.trim();
     const show = filtSet.has(k);
+
     row.style.display = show ? '' : 'none';
+
     if (show) vis++;
   });
+
   document.getElementById('roomTableCount').textContent = vis + ' habitaciones';
 }
 
-// ── Tabla módulos (filtro empresa/turno) ──────────────────────────────────
 function updateModulosTable() {
   if (!fMod) {
-    document.querySelectorAll('#tblModulos tbody tr').forEach(r => r.style.display = '');
+    document.querySelectorAll('#tblModulos tbody tr').forEach(r => {
+      r.style.display = '';
+    });
     return;
   }
+
   document.querySelectorAll('#tblModulos tbody tr').forEach(r => {
-    r.style.display = (r.dataset.modulo === fMod) ? '' : 'none';
+    r.style.display = r.dataset.modulo === fMod ? '' : 'none';
   });
 }
 
-// ── Tabla empresas (filtro módulo) ────────────────────────────────────────
 function updateEmpresasTable() {
   if (!fEmp || fEmp === '__sin__') {
-    document.querySelectorAll('#tblEmpresas tbody tr').forEach(r => r.style.display = '');
+    document.querySelectorAll('#tblEmpresas tbody tr').forEach(r => {
+      r.style.display = '';
+    });
     return;
   }
+
   document.querySelectorAll('#tblEmpresas tbody tr').forEach(r => {
-    r.style.display = (r.dataset.empresa === fEmp) ? '' : 'none';
+    r.style.display = r.dataset.empresa === fEmp ? '' : 'none';
   });
 }
 
-// ── Inicialización de gráficos ────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
-
-  // Chart 1: Comportamiento diario
   chartDiario = new Chart(document.getElementById('chartDiario'), {
     type: 'line',
     data: {
@@ -477,17 +712,39 @@ document.addEventListener('DOMContentLoaded', () => {
       responsive: true,
       maintainAspectRatio: false,
       plugins: {
-        legend: { display: false },
-        tooltip: { callbacks: { title: ctx => 'Día ' + ctx[0].label } }
+        legend: {
+          display: false
+        },
+        tooltip: {
+          callbacks: {
+            title: ctx => 'Día ' + ctx[0].label
+          }
+        }
       },
       scales: {
-        x: { title: { display: true, text: 'Día del mes', font: { size: 11 } } },
-        y: { beginAtZero: true, title: { display: true, text: 'Personas', font: { size: 11 } } }
+        x: {
+          title: {
+            display: true,
+            text: 'Día del mes',
+            font: {
+              size: 11
+            }
+          }
+        },
+        y: {
+          beginAtZero: true,
+          title: {
+            display: true,
+            text: 'Personas',
+            font: {
+              size: 11
+            }
+          }
+        }
       }
     }
   });
 
-  // Chart 2: Módulos
   new Chart(document.getElementById('chartModulos'), {
     type: 'bar',
     data: {
@@ -500,16 +757,32 @@ document.addEventListener('DOMContentLoaded', () => {
       }]
     },
     options: {
-      responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          display: false
+        }
+      },
       scales: {
-        y: { min: 0, max: 100, ticks: { callback: v => v + '%' } },
-        x: { ticks: { font: { size: 10 } } }
+        y: {
+          min: 0,
+          max: 100,
+          ticks: {
+            callback: v => v + '%'
+          }
+        },
+        x: {
+          ticks: {
+            font: {
+              size: 10
+            }
+          }
+        }
       }
     }
   });
 
-  // Chart 3: Empresas (horizontal)
   new Chart(document.getElementById('chartEmpresas'), {
     type: 'bar',
     data: {
@@ -523,13 +796,21 @@ document.addEventListener('DOMContentLoaded', () => {
     },
     options: {
       indexAxis: 'y',
-      responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
-      scales: { x: { beginAtZero: true } }
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          display: false
+        }
+      },
+      scales: {
+        x: {
+          beginAtZero: true
+        }
+      }
     }
   });
 
-  // Init table count
   document.getElementById('roomTableCount').textContent = ROOMS_DATA.length + ' habitaciones';
 });
 </script>
