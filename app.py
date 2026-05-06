@@ -1,7 +1,6 @@
 import io
 import os
 import re
-import json
 import calendar
 from datetime import datetime, date
 from zoneinfo import ZoneInfo
@@ -83,11 +82,6 @@ def style_header(cell, fill_hex=ARAMARK_RED):
     cell.border = thin()
 
 
-def style_cell(cell):
-    cell.alignment = Alignment(horizontal="center", vertical="center")
-    cell.border = thin()
-
-
 def clamp_int(value, default, min_value=None, max_value=None):
     try:
         n = int(value)
@@ -105,7 +99,7 @@ def clamp_int(value, default, min_value=None, max_value=None):
 
 def build_day_status(mes, anio, total_dias):
     """
-    Devuelve una lista booleana indicando qué días del reporte ya se deben evaluar.
+    Devuelve qué días del reporte ya se deben evaluar.
     Los días futuros no cuentan como vacíos ni como ocupados.
     """
     today = now_santiago().date()
@@ -124,206 +118,6 @@ def build_day_status(mes, anio, total_dias):
     total_dias_evaluados = sum(1 for x in day_is_elapsed if x)
 
     return day_is_elapsed, total_dias_evaluados
-
-
-def style_report_header(ws):
-    fill = PatternFill(start_color=ARAMARK_RED, end_color=ARAMARK_RED, fill_type="solid")
-    font = Font(bold=True, color="FFFFFF")
-    border = thin()
-
-    for cell in ws[1]:
-        cell.fill = fill
-        cell.font = font
-        cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
-        cell.border = border
-
-
-def autosize_columns(ws, max_width=45):
-    for col in ws.columns:
-        max_len = 0
-        letter = get_column_letter(col[0].column)
-
-        for cell in col:
-            value = "" if cell.value is None else str(cell.value)
-            max_len = max(max_len, len(value))
-
-        ws.column_dimensions[letter].width = min(max_len + 2, max_width)
-
-
-def add_sheet_from_rows(wb, title, headers, rows):
-    ws = wb.create_sheet(title=title[:31])
-    ws.append(headers)
-
-    for row in rows:
-        ws.append(row)
-
-    style_report_header(ws)
-    autosize_columns(ws)
-    ws.freeze_panes = "A2"
-
-    return ws
-
-
-def generate_report_excel(payload):
-    wb = Workbook()
-    wb.remove(wb.active)
-
-    filtros = payload.get("filtros", {})
-    kpis = payload.get("kpis", {})
-    uso_diario = payload.get("uso_diario", [])
-    modulos = payload.get("modulos", [])
-    empresas = payload.get("empresas", [])
-    habitaciones = payload.get("habitaciones", [])
-    habitacion_dia = payload.get("habitacion_dia", [])
-
-    ws = wb.create_sheet("Resumen")
-    ws.append(["Campo", "Valor"])
-    ws.append(["Módulo", filtros.get("modulo") or "Todos"])
-    ws.append(["Empresa", filtros.get("empresa") or "Todas"])
-    ws.append(["Turno", filtros.get("turno") or "Todos"])
-    ws.append(["Periodo", payload.get("periodo", "")])
-    ws.append(["Días calendario", payload.get("total_dias", 0)])
-    ws.append(["Días evaluados", payload.get("total_dias_evaluados", 0)])
-    ws.append(["Habitaciones filtro", kpis.get("habitaciones", 0)])
-    ws.append(["Camas reales filtro", kpis.get("camas_reales", 0)])
-    ws.append(["Personas asignadas", kpis.get("asignados", 0)])
-    ws.append(["Personas-día", kpis.get("personas_dia", 0)])
-    ws.append(["Ocupación habitaciones %", kpis.get("ocupacion_habitaciones", 0)])
-    ws.append(["Uso capacidad real %", kpis.get("uso_capacidad_real", 0)])
-    style_report_header(ws)
-    autosize_columns(ws)
-
-    add_sheet_from_rows(
-        wb,
-        "Uso diario",
-        [
-            "Día",
-            "Estado",
-            "Personas presentes",
-            "Habitaciones ocupadas",
-            "Camas reales filtro",
-            "Ocupación habitaciones %",
-            "Uso capacidad real %",
-        ],
-        [
-            [
-                r.get("dia"),
-                r.get("estado"),
-                r.get("personas"),
-                r.get("habitaciones_ocupadas"),
-                r.get("camas_reales"),
-                r.get("ocupacion_habitaciones"),
-                r.get("uso_capacidad_real"),
-            ]
-            for r in uso_diario
-        ],
-    )
-
-    add_sheet_from_rows(
-        wb,
-        "Resumen módulos",
-        [
-            "Módulo",
-            "Habitaciones",
-            "Camas reales",
-            "Asignados",
-            "Días ocupados",
-            "Personas-día",
-            "Ocupación habitaciones %",
-            "Uso real %",
-        ],
-        [
-            [
-                r.get("modulo"),
-                r.get("habitaciones"),
-                r.get("camas_reales"),
-                r.get("asignados"),
-                r.get("dias_ocupados"),
-                r.get("personas_dia"),
-                r.get("ocupacion_habitaciones"),
-                r.get("uso_real"),
-            ]
-            for r in modulos
-        ],
-    )
-
-    add_sheet_from_rows(
-        wb,
-        "Resumen empresas",
-        [
-            "Empresa",
-            "Habitaciones",
-            "Asignados",
-            "Días perdidos",
-            "Ocupación %",
-        ],
-        [
-            [
-                r.get("empresa"),
-                r.get("habitaciones"),
-                r.get("asignados"),
-                r.get("dias_perdidos"),
-                r.get("ocupacion"),
-            ]
-            for r in empresas
-        ],
-    )
-
-    add_sheet_from_rows(
-        wb,
-        "Detalle habitaciones",
-        [
-            "Módulo",
-            "Habitación",
-            "Camas reales",
-            "Días ocupados",
-            "Días vacíos",
-            "Ocupación %",
-            "Empresas",
-            "Turnos",
-            "Asignados",
-        ],
-        [
-            [
-                r.get("modulo"),
-                r.get("habitacion"),
-                r.get("camas_reales"),
-                r.get("dias_ocupados"),
-                r.get("dias_vacios"),
-                r.get("ocupacion"),
-                r.get("empresas"),
-                r.get("turnos"),
-                r.get("asignados"),
-            ]
-            for r in habitaciones
-        ],
-    )
-
-    if habitacion_dia:
-        max_days = max(len(r.get("dias", [])) for r in habitacion_dia)
-    else:
-        max_days = 0
-
-    day_headers = [f"Día {i}" for i in range(1, max_days + 1)]
-
-    add_sheet_from_rows(
-        wb,
-        "Habitación día",
-        ["Módulo", "Habitación", "Camas reales"] + day_headers,
-        [
-            [
-                r.get("modulo"),
-                r.get("habitacion"),
-                r.get("camas_reales"),
-            ] + r.get("dias", [])
-            for r in habitacion_dia
-        ],
-    )
-
-    out = io.BytesIO()
-    wb.save(out)
-    out.seek(0)
-    return out
 
 
 def generate_hoteleria():
@@ -603,10 +397,10 @@ def process(hotel_file, censo_file, mes_reporte=None, anio_reporte=None):
             "habitacion": raw_hab,
             "key_str": f"{key[0]}-{key[1]}",
             "daily": daily,
-            "dias_ocupados": dias_ocupados,
-            "dias_vacios": max(total_dias_evaluados - dias_ocupados, 0),
-            "personas_dia": personas_dia,
-            "pct_ocupacion": round(dias_ocupados / total_dias_evaluados * 100, 1) if total_dias_evaluados else 0,
+            "dias_ocupados": int(dias_ocupados),
+            "dias_vacios": int(max(total_dias_evaluados - dias_ocupados, 0)),
+            "personas_dia": int(personas_dia),
+            "pct_ocupacion": int(round(dias_ocupados / total_dias_evaluados * 100)) if total_dias_evaluados else 0,
             "asignados": asignados,
             "n_asignados": len(asignados),
             "empresas": empresas,
@@ -622,17 +416,24 @@ def process(hotel_file, censo_file, mes_reporte=None, anio_reporte=None):
         rooms_by_module.setdefault(room["modulo"], []).append(room)
 
     for modulo, module_rooms in rooms_by_module.items():
-        camas_reales_modulo = get_real_beds(modulo) or 0
+        camas_reales_modulo = int(get_real_beds(modulo) or 0)
         habitaciones_modulo = len(module_rooms)
 
-        camas_reales_por_habitacion = (
-            camas_reales_modulo / habitaciones_modulo
-            if habitaciones_modulo and camas_reales_modulo
-            else 0
+        if habitaciones_modulo == 0 or camas_reales_modulo == 0:
+            for room in module_rooms:
+                room["camas_reales"] = 0
+            continue
+
+        module_rooms_sorted = sorted(
+            module_rooms,
+            key=lambda x: normalize(x["habitacion"])
         )
 
-        for room in module_rooms:
-            room["camas_reales"] = round(camas_reales_por_habitacion, 2)
+        camas_base = camas_reales_modulo // habitaciones_modulo
+        camas_restantes = camas_reales_modulo % habitaciones_modulo
+
+        for idx, room in enumerate(module_rooms_sorted):
+            room["camas_reales"] = int(camas_base + (1 if idx < camas_restantes else 0))
 
     hotel_sample = [
         {"mod": str(k[0]), "hab": str(k[1])}
@@ -669,7 +470,7 @@ def process(hotel_file, censo_file, mes_reporte=None, anio_reporte=None):
         m = r["modulo"]
 
         if m not in modulos:
-            camas_reales = get_real_beds(m)
+            camas_reales = int(get_real_beds(m) or 0)
 
             modulos[m] = {
                 "modulo": m,
@@ -689,20 +490,18 @@ def process(hotel_file, censo_file, mes_reporte=None, anio_reporte=None):
         modulos[m]["personas_dia_total"] += r["personas_dia"]
 
     for m in modulos.values():
-        m["pct_ocupacion"] = round(
-            m["dias_ocupados"] / m["dias_totales"] * 100,
-            1
-        ) if m["dias_totales"] else 0
+        m["pct_ocupacion"] = int(round(
+            m["dias_ocupados"] / m["dias_totales"] * 100
+        )) if m["dias_totales"] else 0
 
         cr = m["camas_reales"]
 
         if cr and total_dias_evaluados:
-            m["pct_cap_real"] = round(
-                m["personas_dia_total"] / (cr * total_dias_evaluados) * 100,
-                1
-            )
+            m["pct_cap_real"] = int(round(
+                m["personas_dia_total"] / (cr * total_dias_evaluados) * 100
+            ))
         else:
-            m["pct_cap_real"] = None
+            m["pct_cap_real"] = 0
 
     module_list = sorted(
         modulos.values(),
@@ -740,10 +539,9 @@ def process(hotel_file, censo_file, mes_reporte=None, anio_reporte=None):
             e["dias_perdidos"] += r["dias_vacios"]
 
     for e in empresas.values():
-        e["pct_ocupacion"] = round(
-            e["dias_ocupados"] / e["dias_totales"] * 100,
-            1
-        ) if e["dias_totales"] else 0
+        e["pct_ocupacion"] = int(round(
+            e["dias_ocupados"] / e["dias_totales"] * 100
+        )) if e["dias_totales"] else 0
 
     empresa_list = sorted(
         empresas.values(),
@@ -756,20 +554,18 @@ def process(hotel_file, censo_file, mes_reporte=None, anio_reporte=None):
     total_oc = sum(r["dias_ocupados"] for r in rooms)
     total_personas_dia = sum(r["personas_dia"] for r in rooms)
 
-    total_pct = round(
-        total_oc / (total_hab * total_dias_evaluados) * 100,
-        1
-    ) if total_hab * total_dias_evaluados else 0
+    total_pct = int(round(
+        total_oc / (total_hab * total_dias_evaluados) * 100
+    )) if total_hab * total_dias_evaluados else 0
 
-    total_camas_reales = sum(
+    total_camas_reales = int(sum(
         m["camas_reales"] or 0
         for m in modulos.values()
-    )
+    ))
 
-    total_pct_cap_real = round(
-        total_personas_dia / (total_camas_reales * total_dias_evaluados) * 100,
-        1
-    ) if total_camas_reales and total_dias_evaluados else 0
+    total_pct_cap_real = int(round(
+        total_personas_dia / (total_camas_reales * total_dias_evaluados) * 100
+    )) if total_camas_reales and total_dias_evaluados else 0
 
     company_names = sorted({
         p["empresa"]
@@ -799,7 +595,7 @@ def process(hotel_file, censo_file, mes_reporte=None, anio_reporte=None):
     )
 
     module_capacity_map = {
-        m["modulo"]: m["camas_reales"] or 0
+        m["modulo"]: int(m["camas_reales"] or 0)
         for m in module_list
     }
 
@@ -811,12 +607,12 @@ def process(hotel_file, censo_file, mes_reporte=None, anio_reporte=None):
             "empresas": r["empresas"],
             "turnos": r["turnos"],
             "daily": r["daily"],
-            "dias_ocupados": r["dias_ocupados"],
-            "dias_vacios": r["dias_vacios"],
-            "personas_dia": r["personas_dia"],
-            "camas_reales": r.get("camas_reales", 0),
-            "pct_ocupacion": r["pct_ocupacion"],
-            "n_asignados": r["n_asignados"],
+            "dias_ocupados": int(r["dias_ocupados"]),
+            "dias_vacios": int(r["dias_vacios"]),
+            "personas_dia": int(r["personas_dia"]),
+            "camas_reales": int(r.get("camas_reales", 0)),
+            "pct_ocupacion": int(r["pct_ocupacion"]),
+            "n_asignados": int(r["n_asignados"]),
             "asignados": [
                 {
                     "empresa": p.get("empresa", ""),
@@ -831,18 +627,18 @@ def process(hotel_file, censo_file, mes_reporte=None, anio_reporte=None):
     ]
 
     return {
-        "total_habitaciones": total_hab,
-        "total_asignadas": total_asig,
-        "total_camas_reales": total_camas_reales,
-        "total_personas_dia": total_personas_dia,
-        "total_pct_cap_real": total_pct_cap_real,
-        "total_dias": total_dias,
-        "total_dias_evaluados": total_dias_evaluados,
+        "total_habitaciones": int(total_hab),
+        "total_asignadas": int(total_asig),
+        "total_camas_reales": int(total_camas_reales),
+        "total_personas_dia": int(total_personas_dia),
+        "total_pct_cap_real": int(total_pct_cap_real),
+        "total_dias": int(total_dias),
+        "total_dias_evaluados": int(total_dias_evaluados),
         "day_is_elapsed": day_is_elapsed,
-        "mes_reporte": mes_reporte,
-        "anio_reporte": anio_reporte,
+        "mes_reporte": int(mes_reporte),
+        "anio_reporte": int(anio_reporte),
         "periodo": f"{MESES[mes_reporte - 1]} {anio_reporte}",
-        "pct_ocupacion": total_pct,
+        "pct_ocupacion": int(total_pct),
         "modulos": module_list,
         "empresas": empresa_list,
         "rooms": sorted_rooms,
@@ -936,30 +732,6 @@ def procesar():
             meses=MESES,
             anios=list(range(now.year - 1, now.year + 2)),
         )
-
-
-@app.route("/download/reporte", methods=["POST"])
-def download_reporte():
-    raw = request.form.get("report_json", "")
-
-    if not raw:
-        return "No se recibió información para generar el reporte.", 400
-
-    try:
-        payload = json.loads(raw)
-    except json.JSONDecodeError:
-        return "El reporte recibido no tiene formato válido.", 400
-
-    out = generate_report_excel(payload)
-
-    periodo = payload.get("periodo", "reporte").replace(" ", "_").lower()
-
-    return send_file(
-        out,
-        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        as_attachment=True,
-        download_name=f"reporte_hotel_analytics_{periodo}.xlsx",
-    )
 
 
 if __name__ == "__main__":
