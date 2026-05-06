@@ -1,106 +1,158 @@
-{% extends "base.html" %}
-{% block title %}Hotel Analytics VCA{% endblock %}
+{% extends 'base.html' %}
+
+{% block title %}Hotel Analytics — Inicio{% endblock %}
 
 {% block content %}
-<div class="row g-3">
 
-    {% if error %}
-    <div class="col-12">
-        <div class="alert alert-danger"><i class="bi bi-exclamation-triangle"></i> {{ error }}</div>
-    </div>
-    {% endif %}
-
-    <!-- Descargar plantillas -->
-    <div class="col-12 col-lg-5">
-        <div class="card shadow-sm h-100">
-            <div class="card-body">
-                <h5 class="card-title mb-3">
-                    <i class="bi bi-file-earmark-arrow-down text-success"></i> Descargar plantillas
-                </h5>
-                <p class="text-muted small mb-3">
-                    Descarga las plantillas, completa los datos y súbelas para cruzar la información.
-                </p>
-
-                <div class="border rounded p-3 mb-3">
-                    <div class="fw-semibold mb-1">
-                        <i class="bi bi-building text-primary"></i> Plantilla 1 — Base de Datos Hotelería
-                    </div>
-                    <div class="text-muted small mb-2">
-                        RUT, nombre, empresa, contrato, turno por habitación.
-                    </div>
-                    <a href="/download/hoteleria" class="btn btn-outline-primary btn-sm">
-                        <i class="bi bi-download"></i> Descargar
-                    </a>
-                </div>
-
-                <div class="border rounded p-3">
-                    <div class="fw-semibold mb-1">
-                        <i class="bi bi-calendar3 text-success"></i> Plantilla 2 — Censo Ontracking
-                    </div>
-                    <div class="text-muted small mb-2">
-                        Ocupación diaria por habitación (valores numéricos por día).
-                    </div>
-                    <form action="/download/censo" method="get" class="d-flex gap-2 flex-wrap align-items-center mt-2">
-                        <select name="mes" class="form-select form-select-sm" style="width:auto">
-                            {% for i in range(1, 13) %}
-                            <option value="{{ i }}" {% if i == mes %}selected{% endif %}>
-                                {{ meses[i-1] }}
-                            </option>
-                            {% endfor %}
-                        </select>
-                        <select name="anio" class="form-select form-select-sm" style="width:auto">
-                            {% for a in anios %}
-                            <option value="{{ a }}" {% if a == anio %}selected{% endif %}>{{ a }}</option>
-                            {% endfor %}
-                        </select>
-                        <button type="submit" class="btn btn-outline-success btn-sm">
-                            <i class="bi bi-download"></i> Descargar
-                        </button>
-                    </form>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Subir y procesar -->
-    <div class="col-12 col-lg-7">
-        <div class="card shadow-sm h-100">
-            <div class="card-body">
-                <h5 class="card-title mb-3">
-                    <i class="bi bi-arrow-left-right text-warning"></i> Cruzar datos
-                </h5>
-                <p class="text-muted small mb-3">
-                    Sube los dos archivos completados para generar el análisis.
-                </p>
-
-                <form action="/procesar" method="post" enctype="multipart/form-data">
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold">
-                            <i class="bi bi-building text-primary"></i> Base Hotelería (.xlsx)
-                        </label>
-                        <input type="file" name="hoteleria" class="form-control" accept=".xlsx,.xls" required>
-                    </div>
-                    <div class="mb-4">
-                        <label class="form-label fw-semibold">
-                            <i class="bi bi-calendar3 text-success"></i> Censo Ontracking (.xlsx)
-                        </label>
-                        <input type="file" name="censo" class="form-control" accept=".xlsx,.xls" required>
-                    </div>
-                    <div class="d-grid">
-                        <button type="submit" class="btn btn-primary btn-lg">
-                            <i class="bi bi-bar-chart-line"></i> Generar análisis
-                        </button>
-                    </div>
-                </form>
-
-                <hr class="my-3">
-                <div class="text-muted small">
-                    <i class="bi bi-info-circle"></i>
-                    El cruce se hace por <strong>Módulo + Habitación</strong>. Los valores del censo
-                    (0, 1, 2…) indican la cantidad de personas en la habitación ese día.
-                </div>
-            </div>
-        </div>
-    </div>
+<!-- Page header -->
+<div class="row mb-4">
+  <div class="col">
+    <h2 class="fw-bold" style="color:var(--aramark-red);">
+      <i class="bi bi-bar-chart-line-fill me-2"></i>Análisis de Hotelería
+    </h2>
+    <p class="text-muted mb-0">Descarga las plantillas, complétalas y súbelas para obtener el informe de ocupación.</p>
+  </div>
 </div>
+
+{% if error %}
+<div class="alert alert-danger d-flex align-items-center gap-2">
+  <i class="bi bi-exclamation-triangle-fill fs-5"></i>
+  <span>{{ error }}</span>
+</div>
+{% endif %}
+
+<!-- ── PASO 1: Descargar plantillas ─────────────────────────────────────── -->
+<div class="card mb-4 shadow-sm">
+  <div class="card-header card-header-red d-flex align-items-center gap-2">
+    <i class="bi bi-download"></i> Paso 1 — Descargar Plantillas
+  </div>
+  <div class="card-body">
+    <div class="row g-3">
+
+      <!-- Plantilla Hoteleria -->
+      <div class="col-md-6">
+        <div class="border rounded p-3 h-100 d-flex flex-column">
+          <div class="d-flex align-items-center gap-2 mb-2">
+            <i class="bi bi-file-earmark-spreadsheet fs-3 text-success"></i>
+            <div>
+              <strong>Plantilla Hotelería</strong>
+              <div class="text-muted small">Base de datos de trabajadores y habitaciones</div>
+            </div>
+          </div>
+          <ul class="small text-muted mb-3 ps-3">
+            <li>HABITACION, MODULO, RUT, NOMBRE</li>
+            <li>EMPRESA, N CONTRATO, GERENCIA</li>
+            <li>SISTEMA TURNO, CALENDARIO ASIGNADO EN SALTO</li>
+            <li>CO MEL, GENERO, NOMBRE DE TURNO</li>
+          </ul>
+          <div class="mt-auto">
+            <a href="/download/hoteleria" class="btn btn-aramark w-100">
+              <i class="bi bi-download me-1"></i> Descargar plantilla_hoteleria.xlsx
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Plantilla Censo -->
+      <div class="col-md-6">
+        <div class="border rounded p-3 h-100 d-flex flex-column">
+          <div class="d-flex align-items-center gap-2 mb-2">
+            <i class="bi bi-file-earmark-spreadsheet fs-3 text-primary"></i>
+            <div>
+              <strong>Plantilla Censo Ontracking</strong>
+              <div class="text-muted small">Ocupación diaria por habitación</div>
+            </div>
+          </div>
+          <p class="small text-muted mb-2">
+            Columnas: <strong>Modulo</strong>, <strong>Habitacion</strong> y un número por cada día del mes seleccionado.<br>
+            Ingresa <strong>0</strong> = vacío, <strong>1</strong> o más = personas presentes.
+          </p>
+
+          <form action="/download/censo" method="get" class="mt-auto">
+            <div class="row g-2 mb-2">
+              <div class="col-6">
+                <select name="mes" class="form-select form-select-sm">
+                  {% for m in meses %}
+                    <option value="{{ loop.index }}" {% if loop.index == mes %}selected{% endif %}>{{ m }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="col-6">
+                <select name="anio" class="form-select form-select-sm">
+                  {% for y in anios %}
+                    <option value="{{ y }}" {% if y == anio %}selected{% endif %}>{{ y }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+            </div>
+            <button type="submit" class="btn btn-aramark w-100">
+              <i class="bi bi-download me-1"></i> Descargar Censo del Mes
+            </button>
+          </form>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ── PASO 2: Subir archivos ────────────────────────────────────────────── -->
+<div class="card shadow-sm">
+  <div class="card-header card-header-red d-flex align-items-center gap-2">
+    <i class="bi bi-upload"></i> Paso 2 — Subir Archivos y Analizar
+  </div>
+  <div class="card-body">
+    <form action="/procesar" method="post" enctype="multipart/form-data" id="formProcesar">
+      <div class="row g-3">
+
+        <div class="col-md-6">
+          <label class="form-label fw-semibold">
+            <i class="bi bi-file-earmark-spreadsheet text-success me-1"></i>Archivo Hotelería (.xlsx)
+          </label>
+          <input type="file" name="hoteleria" accept=".xlsx" required
+                 class="form-control" id="fileHoteleria">
+          <div class="form-text">La plantilla de hotelería completada con los trabajadores.</div>
+        </div>
+
+        <div class="col-md-6">
+          <label class="form-label fw-semibold">
+            <i class="bi bi-file-earmark-spreadsheet text-primary me-1"></i>Archivo Censo Ontracking (.xlsx)
+          </label>
+          <input type="file" name="censo" accept=".xlsx" required
+                 class="form-control" id="fileCenso">
+          <div class="form-text">El censo con la ocupación diaria del mes.</div>
+        </div>
+
+      </div>
+
+      <div class="mt-4 d-flex gap-2 align-items-center">
+        <button type="submit" class="btn btn-aramark px-4" id="btnProcesar">
+          <i class="bi bi-graph-up-arrow me-2"></i>Generar Análisis
+        </button>
+        <span class="text-muted small" id="loadingMsg" style="display:none;">
+          <span class="spinner-border spinner-border-sm me-1"></span>Procesando…
+        </span>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// make enumerate available in jinja — handled server-side, but let's add UX polish
+document.getElementById('formProcesar').addEventListener('submit', function() {
+  document.getElementById('btnProcesar').disabled = true;
+  document.getElementById('loadingMsg').style.display = 'inline-flex';
+});
+
+// Show selected filenames
+['fileHoteleria','fileCenso'].forEach(id => {
+  document.getElementById(id).addEventListener('change', function() {
+    const label = this.closest('.col-md-6').querySelector('.form-text');
+    if (this.files[0]) label.textContent = '✓ ' + this.files[0].name;
+  });
+});
+</script>
 {% endblock %}
