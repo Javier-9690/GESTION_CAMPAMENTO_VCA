@@ -1,0 +1,323 @@
+{% extends "base.html" %}
+{% block title %}Resultados — Hotel Analytics VCA{% endblock %}
+
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+.filter-bar { background:#fff; border-radius:.5rem; padding:.75rem 1rem; box-shadow:0 1px 4px rgba(0,0,0,.07); margin-bottom:1rem; }
+.badge-ok  { background:#d4edda; color:#155724; }
+.badge-warn{ background:#fff3cd; color:#856404; }
+.badge-bad { background:#f8d7da; color:#721c24; }
+.inef-bar  { background:#e74c3c; }
+.room-row:hover { background:#f0faf7; cursor:pointer; }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Botón volver -->
+<div class="mb-3">
+    <a href="/" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i> Nuevo análisis
+    </a>
+</div>
+
+<!-- ── Tarjetas resumen ────────────────────────────────────────────────── -->
+<div class="row g-3 mb-3">
+    <div class="col-6 col-md-3">
+        <div class="card shadow-sm stat-card p-3">
+            <div class="stat-val">{{ r.total_habitaciones }}</div>
+            <div class="stat-lbl">Habitaciones en censo</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card shadow-sm stat-card p-3">
+            <div class="stat-val">{{ r.total_camas }}</div>
+            <div class="stat-lbl">Camas estimadas</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card shadow-sm stat-card p-3">
+            <div class="stat-val">{{ r.total_asignadas }}</div>
+            <div class="stat-lbl">Personas asignadas</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card shadow-sm stat-card p-3">
+            <div class="stat-val">{{ r.pct_ocupacion }}%</div>
+            <div class="stat-lbl">Ocupación global ({{ r.total_dias }} días)</div>
+        </div>
+    </div>
+</div>
+
+<!-- ── Gráficos ────────────────────────────────────────────────────────── -->
+<div class="row g-3 mb-3">
+    <div class="col-12 col-lg-7">
+        <div class="card shadow-sm p-3">
+            <h6 class="mb-2"><i class="bi bi-building"></i> Habitaciones y % ocupación por módulo</h6>
+            <div style="max-height:320px;overflow-y:auto">
+                <canvas id="chartModulo"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-lg-5">
+        <div class="card shadow-sm p-3">
+            <h6 class="mb-2"><i class="bi bi-briefcase"></i> Días perdidos por empresa</h6>
+            <div style="max-height:320px;overflow-y:auto">
+                <canvas id="chartEmpresa"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ── Tabla por módulo ───────────────────────────────────────────────── -->
+<div class="card shadow-sm mb-3">
+    <div class="card-body p-2">
+        <h6 class="mb-2"><i class="bi bi-table"></i> Resumen por módulo</h6>
+        <div class="table-responsive">
+            <table class="table table-sm table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>Módulo</th><th>Habitaciones</th><th>Camas est.</th>
+                        <th>Personas asig.</th><th>Días ocupados</th><th>% Ocupación</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for m in r.modulos %}
+                <tr>
+                    <td class="fw-bold">{{ m.modulo }}</td>
+                    <td>{{ m.habitaciones }}</td>
+                    <td>{{ m.camas }}</td>
+                    <td>{{ m.personas_asignadas }}</td>
+                    <td>{{ m.dias_ocupados }} / {{ m.dias_totales }}</td>
+                    <td>
+                        <div class="d-flex align-items-center gap-2">
+                            <div class="progress flex-grow-1" style="height:8px">
+                                <div class="progress-bar" style="width:{{ m.pct_ocupacion }}%"></div>
+                            </div>
+                            <span class="small">{{ m.pct_ocupacion }}%</span>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- ── Tabla por empresa ──────────────────────────────────────────────── -->
+<div class="card shadow-sm mb-3">
+    <div class="card-body p-2">
+        <h6 class="mb-2"><i class="bi bi-briefcase"></i> Ineficiencia de ocupación por empresa</h6>
+        <div class="table-responsive">
+            <table class="table table-sm table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>Empresa</th><th>Habitaciones</th><th>Personas</th>
+                        <th>Días ocupados</th><th>Días perdidos</th><th>% Ocupación</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for e in r.empresas %}
+                <tr>
+                    <td class="fw-bold">{{ e.empresa }}</td>
+                    <td>{{ e.habitaciones }}</td>
+                    <td>{{ e.personas }}</td>
+                    <td>{{ e.dias_ocupados }}</td>
+                    <td>
+                        {% if e.dias_perdidos > 0 %}
+                        <span class="badge badge-bad px-2 py-1">{{ e.dias_perdidos }}</span>
+                        {% else %}
+                        <span class="badge badge-ok px-2 py-1">0</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div class="d-flex align-items-center gap-2">
+                            <div class="progress flex-grow-1" style="height:8px">
+                                <div class="progress-bar {% if e.pct_ocupacion < 50 %}inef-bar{% endif %}"
+                                     style="width:{{ e.pct_ocupacion }}%"></div>
+                            </div>
+                            <span class="small">{{ e.pct_ocupacion }}%</span>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- ── Detalle por habitación ─────────────────────────────────────────── -->
+<div class="card shadow-sm mb-3">
+    <div class="card-body p-2">
+        <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+            <h6 class="mb-0"><i class="bi bi-door-open"></i> Detalle por habitación</h6>
+            <div class="d-flex gap-2 flex-wrap">
+                <select id="filtroModulo" class="form-select form-select-sm" style="width:auto">
+                    <option value="">Todos los módulos</option>
+                    {% for m in r.modulos %}
+                    <option value="{{ m.modulo }}">{{ m.modulo }}</option>
+                    {% endfor %}
+                </select>
+                <select id="filtroEmpresa" class="form-select form-select-sm" style="width:auto">
+                    <option value="">Todas las empresas</option>
+                    {% for c in r.company_names %}
+                    <option value="{{ c }}">{{ c }}</option>
+                    {% endfor %}
+                </select>
+                <input type="number" id="filtroMaxOcup" class="form-control form-control-sm" style="width:110px"
+                       placeholder="% ocup. ≤" min="0" max="100" title="Mostrar hab. con % ocupación menor o igual">
+            </div>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-sm table-hover mb-0" id="tablaDetalle">
+                <thead>
+                    <tr>
+                        <th>Módulo</th><th>Habitación</th><th>Persona asignada</th>
+                        <th>Empresa</th><th>Días ocup.</th><th>Días vacíos</th>
+                        <th>Personas-día</th><th>% Ocup.</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for room in r.rooms %}
+                <tr class="room-row"
+                    data-modulo="{{ room.modulo }}"
+                    data-empresa="{{ room.asignados[0].empresa if room.asignados else '' }}"
+                    data-pct="{{ room.pct_ocupacion }}">
+                    <td>{{ room.modulo }}</td>
+                    <td class="fw-bold">{{ room.habitacion }}</td>
+                    <td class="small">
+                        {% if room.asignados %}
+                            {{ room.asignados[0].nombre }}
+                            {% if room.n_asignados > 1 %}
+                            <span class="badge bg-secondary ms-1">+{{ room.n_asignados - 1 }}</span>
+                            {% endif %}
+                        {% else %}
+                            <span class="text-muted">—</span>
+                        {% endif %}
+                    </td>
+                    <td class="small">
+                        {% if room.asignados %}{{ room.asignados[0].empresa }}{% else %}<span class="text-muted">—</span>{% endif %}
+                    </td>
+                    <td>{{ room.dias_ocupados }}</td>
+                    <td>
+                        {% if room.dias_vacios > 0 %}
+                        <span class="badge badge-bad px-1">{{ room.dias_vacios }}</span>
+                        {% else %}<span class="badge badge-ok px-1">0</span>{% endif %}
+                    </td>
+                    <td>{{ room.personas_dia }}</td>
+                    <td>
+                        <span class="badge {% if room.pct_ocupacion >= 80 %}badge-ok{% elif room.pct_ocupacion >= 50 %}badge-warn{% else %}badge-bad{% endif %} px-2">
+                            {{ room.pct_ocupacion }}%
+                        </span>
+                    </td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div id="sinResultados" class="text-center text-muted py-3 d-none">Sin habitaciones para los filtros seleccionados.</div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ── Datos para gráficos ────────────────────────────────────────────────────
+const moduloLabels = {{ r.modulos | map(attribute='modulo') | list | tojson }};
+const moduloHabs   = {{ r.modulos | map(attribute='habitaciones') | list | tojson }};
+const moduloPct    = {{ r.modulos | map(attribute='pct_ocupacion') | list | tojson }};
+
+const empLabels    = {{ r.empresas | map(attribute='empresa') | list | tojson }};
+const empPerdidos  = {{ r.empresas | map(attribute='dias_perdidos') | list | tojson }};
+const empPct       = {{ r.empresas | map(attribute='pct_ocupacion') | list | tojson }};
+
+// ── Gráfico módulos ────────────────────────────────────────────────────────
+new Chart(document.getElementById('chartModulo'), {
+    data: {
+        labels: moduloLabels,
+        datasets: [
+            {
+                type: 'bar',
+                label: 'Habitaciones',
+                data: moduloHabs,
+                backgroundColor: 'rgba(17,122,101,.6)',
+                yAxisID: 'y',
+                order: 2
+            },
+            {
+                type: 'line',
+                label: '% Ocupación',
+                data: moduloPct,
+                borderColor: '#E74C3C',
+                backgroundColor: 'rgba(231,76,60,.1)',
+                pointRadius: 3,
+                yAxisID: 'y2',
+                order: 1,
+                tension: .3
+            }
+        ]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { position: 'top' } },
+        scales: {
+            y:  { beginAtZero: true, title: { display: true, text: 'Habitaciones' } },
+            y2: { beginAtZero: true, max: 100, position: 'right',
+                  title: { display: true, text: '% Ocupación' },
+                  grid: { drawOnChartArea: false } }
+        }
+    }
+});
+
+// ── Gráfico empresas ───────────────────────────────────────────────────────
+new Chart(document.getElementById('chartEmpresa'), {
+    type: 'bar',
+    data: {
+        labels: empLabels,
+        datasets: [{
+            label: 'Días perdidos',
+            data: empPerdidos,
+            backgroundColor: empPerdidos.map(v => v > 0 ? 'rgba(231,76,60,.7)' : 'rgba(39,174,96,.6)')
+        }]
+    },
+    options: {
+        indexAxis: 'y',
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: { x: { beginAtZero: true } }
+    }
+});
+
+// ── Filtros de tabla detalle ───────────────────────────────────────────────
+function applyFilters() {
+    const mod  = document.getElementById('filtroModulo').value.toLowerCase();
+    const emp  = document.getElementById('filtroEmpresa').value.toLowerCase();
+    const maxP = parseFloat(document.getElementById('filtroMaxOcup').value);
+
+    let visible = 0;
+    document.querySelectorAll('#tablaDetalle tbody tr').forEach(row => {
+        const rMod = (row.dataset.modulo  || '').toLowerCase();
+        const rEmp = (row.dataset.empresa || '').toLowerCase();
+        const rPct = parseFloat(row.dataset.pct);
+
+        const ok = (!mod || rMod === mod)
+                && (!emp || rEmp.includes(emp))
+                && (isNaN(maxP) || rPct <= maxP);
+
+        row.style.display = ok ? '' : 'none';
+        if (ok) visible++;
+    });
+
+    document.getElementById('sinResultados').classList.toggle('d-none', visible > 0);
+}
+
+['filtroModulo','filtroEmpresa','filtroMaxOcup'].forEach(id => {
+    document.getElementById(id).addEventListener('input', applyFilters);
+    document.getElementById(id).addEventListener('change', applyFilters);
+});
+</script>
+{% endblock %}
