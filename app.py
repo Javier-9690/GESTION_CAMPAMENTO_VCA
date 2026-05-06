@@ -14,82 +14,178 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-SANTIAGO_TZ = ZoneInfo('America/Santiago')
+SANTIAGO_TZ = ZoneInfo("America/Santiago")
+
 
 def now_santiago():
     return datetime.now(SANTIAGO_TZ).replace(tzinfo=None)
 
+
 app = Flask(__name__)
-app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-hotel-key')
-app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024
+app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev-hotel-key")
+app.config["MAX_CONTENT_LENGTH"] = 50 * 1024 * 1024
+
+
+@app.context_processor
+def inject_now():
+    return {"now": now_santiago()}
+
 
 # ── Cabeceras ──────────────────────────────────────────────────────────────
 
 HOTEL_HEADERS = [
-    'HABITACION', 'MODULO', 'RUT', 'NOMBRE', 'EMPRESA',
-    'N CONTRATO', 'GERENCIA', 'SISTEMA TURNO',
-    'CALENDARIO ASIGNADO EN SALTO', 'CO MEL', 'GENERO', 'NOMBRE DE TURNO'
+    "HABITACION",
+    "MODULO",
+    "RUT",
+    "NOMBRE",
+    "EMPRESA",
+    "N CONTRATO",
+    "GERENCIA",
+    "SISTEMA TURNO",
+    "CALENDARIO ASIGNADO EN SALTO",
+    "CO MEL",
+    "GENERO",
+    "NOMBRE DE TURNO",
 ]
+
 HOTEL_WIDTHS = [14, 12, 14, 28, 22, 14, 22, 16, 30, 10, 10, 22]
 
-# ── Estilos ────────────────────────────────────────────────────────────────
 
-ARAMARK_RED = 'B42318'
+# ── Camas reales por módulo ────────────────────────────────────────────────
+# Fuente: mapa oficial de habitaciones VCA
+
+REAL_BEDS = {
+    1: 100,
+    2: 100,
+    3: 100,
+    4: 96,
+    5: 100,
+    6: 100,
+    7: 96,
+    8: 96,
+    9: 100,
+    10: 100,
+    11: 96,
+    12: 96,
+    13: 24,
+    14: 24,
+    15: 24,
+    16: 64,
+    17: 64,
+    18: 64,
+    19: 64,
+    20: 64,
+    21: 100,
+    22: 96,
+    23: 96,
+    24: 96,
+    25: 96,
+    26: 96,
+    27: 96,
+    28: 96,
+    29: 96,
+    30: 96,
+    31: 96,
+    32: 96,
+    33: 96,
+    34: 144,
+    35: 144,
+    36: 144,
+    37: 144,
+    38: 144,
+    39: 144,
+    40: 144,
+    41: 144,
+    42: 144,
+    43: 144,
+    44: 144,
+    45: 144,
+    46: 288,
+    47: 287,
+}
+
+
+def get_real_beds(mod_str):
+    """Retorna camas reales para un módulo dado su string."""
+    n = extract_mod_num(mod_str)
+    return REAL_BEDS.get(n, None)
+
+
+# ── Estilos Excel ──────────────────────────────────────────────────────────
+
+ARAMARK_RED = "B42318"
+
 
 def thin():
-    s = Side(style='thin')
+    s = Side(style="thin")
     return Border(left=s, right=s, top=s, bottom=s)
 
+
 def style_header(cell, fill_hex=ARAMARK_RED):
-    cell.font = Font(bold=True, color='FFFFFF', size=10)
-    cell.fill = PatternFill(start_color=fill_hex, end_color=fill_hex, fill_type='solid')
-    cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+    cell.font = Font(bold=True, color="FFFFFF", size=10)
+    cell.fill = PatternFill(start_color=fill_hex, end_color=fill_hex, fill_type="solid")
+    cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
     cell.border = thin()
+
 
 def style_cell(cell):
-    cell.alignment = Alignment(horizontal='center', vertical='center')
+    cell.alignment = Alignment(horizontal="center", vertical="center")
     cell.border = thin()
 
-# ── Generar Plantilla 1: Hoteleria ─────────────────────────────────────────
+
+# ── Generar Plantilla 1: Hotelería ─────────────────────────────────────────
 
 def generate_hoteleria():
     wb = Workbook()
     ws = wb.active
-    ws.title = 'Base Hoteleria'
+    ws.title = "Base Hoteleria"
     ws.row_dimensions[1].height = 36
+
     for col, h in enumerate(HOTEL_HEADERS, 1):
         cell = ws.cell(row=1, column=col, value=h)
         style_header(cell)
+
     for i, w in enumerate(HOTEL_WIDTHS, 1):
         ws.column_dimensions[get_column_letter(i)].width = w
-    ws.freeze_panes = 'A2'
-    ws.auto_filter.ref = 'A1:' + get_column_letter(len(HOTEL_HEADERS)) + '1'
+
+    ws.freeze_panes = "A2"
+    ws.auto_filter.ref = "A1:" + get_column_letter(len(HOTEL_HEADERS)) + "1"
+
     out = io.BytesIO()
     wb.save(out)
     out.seek(0)
     return out
+
 
 # ── Generar Plantilla 2: Censo Ontracking ─────────────────────────────────
 
 def generate_censo(mes, anio):
     days = calendar.monthrange(int(anio), int(mes))[1]
+
     wb = Workbook()
     ws = wb.active
-    ws.title = 'Censo Ontracking'
+    ws.title = "Censo Ontracking"
     ws.row_dimensions[1].height = 30
-    headers = ['Modulo', 'Habitacion'] + [str(d) for d in range(1, days + 1)]
+
+    headers = ["Modulo", "Habitacion"] + [str(d) for d in range(1, days + 1)]
+
     for col, h in enumerate(headers, 1):
         cell = ws.cell(row=1, column=col, value=h)
-        style_header(cell, '8B0000')
-    ws.column_dimensions['A'].width = 16
-    ws.column_dimensions['B'].width = 16
+        style_header(cell, "8B0000")
+
+    ws.column_dimensions["A"].width = 16
+    ws.column_dimensions["B"].width = 16
+
     for d in range(1, days + 1):
         ws.column_dimensions[get_column_letter(d + 2)].width = 5
-    ws.freeze_panes = 'C2'
+
+    ws.freeze_panes = "C2"
+
     out = io.BytesIO()
     wb.save(out)
     out.seek(0)
     return out
+
 
 # ── Leer Excel ─────────────────────────────────────────────────────────────
 
@@ -100,102 +196,109 @@ def read_rows(file_obj):
     wb.close()
     return rows
 
+
 # ── Normalización base ─────────────────────────────────────────────────────
 
 def normalize(val):
-    """Limpia val a string. Convierte 101.0 -> '101'."""
+    """Limpia valor a string. Convierte 101.0 -> '101'."""
     if val is None:
-        return ''
+        return ""
+
     s = str(val).strip()
-    if re.match(r'^\d+\.0+$', s):
+
+    if re.match(r"^\d+\.0+$", s):
         s = str(int(float(s)))
+
     return s
+
 
 def extract_mod_num(mod_str):
     """
-    Extrae numero entero de modulo desde cualquier formato:
-      'Modulo 01', 'Módulo1', 'MOD 10', 'M10', '10', '01' -> int
-    Retorna None si no puede extraer.
+    Extrae número entero de módulo desde distintos formatos:
+    'Modulo 01', 'Módulo1', 'MOD 10', 'M10', '10', '01' -> int
     """
     s = normalize(mod_str).upper()
-    # quita prefijos textuales: MODULO, MOD (con o sin acento)
-    s = re.sub(r'^M[OÓ]DULO\s*', '', s)
-    s = re.sub(r'^MOD\s*', '', s)
-    # quita M suelto al inicio
-    s = re.sub(r'^M\s*', '', s)
-    # extrae numero inicial (sin ceros)
-    m = re.match(r'^0*(\d+)', s)
+
+    s = re.sub(r"^M[OÓ]DULO\s*", "", s)
+    s = re.sub(r"^MOD\s*", "", s)
+    s = re.sub(r"^M\s*", "", s)
+
+    m = re.match(r"^0*(\d+)", s)
+
     return int(m.group(1)) if m else None
+
 
 def normalize_suffix(s):
     """
-    Normaliza sufijo de habitacion eliminando ceros iniciales:
-      '03' -> '3', '001' -> '1', '01B' -> '1B', '02B' -> '2B', '3' -> '3'
+    Normaliza sufijo de habitación eliminando ceros iniciales:
+    '03' -> '3', '001' -> '1', '01B' -> '1B'
     """
-    s = s.strip().upper()
-    m = re.match(r'^0*(\d+)([A-Z]*)$', s)
+    s = normalize(s).strip().upper()
+
+    m = re.match(r"^0*(\d+)([A-Z]*)$", s)
+
     if m:
         return str(int(m.group(1))) + m.group(2)
+
     return s
 
-# ── Claves de matching por sistema ────────────────────────────────────────
-#
-# CENSO:     Modulo="Modulo 01"  Habitacion="M1H03"
-# HOTELERIA: Modulo="Módulo1"    Habitacion="103"
-#
-# Clave canonica: (mod_num_int, room_suffix_sin_ceros)
-# Ejemplo: (1, '3') para Modulo 1 / Habitacion 03
-#          (42, '2B') para Modulo 42 / Habitacion 02B
-# ──────────────────────────────────────────────────────────────────────────
+
+# ── Claves de matching ─────────────────────────────────────────────────────
 
 def census_key(mod_val, hab_val):
     """
-    Parsea clave desde el censo.
+    Censo:
     mod='Modulo 01' -> mod_num=1
-    hab='M1H03'     -> suffix='3'  (extrae lo que viene despues de H)
+    hab='M1H03'     -> suffix='3'
     hab='M42H02B'   -> suffix='2B'
     """
     mod_num = extract_mod_num(mod_val)
     hab = normalize(hab_val).upper()
-    # Patron M{n}H{suffix}
-    m = re.match(r'^M\d+H(.+)$', hab)
+
+    m = re.match(r"^M\d+H(.+)$", hab)
+
     if m:
         suffix = normalize_suffix(m.group(1))
     else:
-        # Fallback: usa habitacion completa normalizada
         suffix = normalize_suffix(hab) if hab else hab
-    return (mod_num, suffix)
+
+    return mod_num, suffix
+
 
 def hotel_key(mod_val, hab_val):
     """
-    Parsea clave desde la base de datos hoteleria.
-    mod='Módulo1'  -> mod_num=1
-    hab='103'      -> prefix='1', suffix='03' -> normalize -> '3'
-    hab='1001'     -> prefix='10', suffix='01' -> '1'
-    hab='46001'    -> prefix='46', suffix='001' -> '1'
-    hab='4202B'    -> prefix='42', suffix='02B' -> '2B'
+    Hotelería:
+    mod='Módulo1' -> mod_num=1
+    hab='103'     -> suffix='3'
+    hab='1001'    -> suffix='1'
+    hab='4202B'   -> suffix='2B'
     """
     mod_num = extract_mod_num(mod_val)
     hab = normalize(hab_val).upper()
+
     if mod_num is not None:
         prefix = str(mod_num)
+
         if hab.startswith(prefix):
             suffix = normalize_suffix(hab[len(prefix):])
         else:
-            # intenta igual con sufijo completo
             suffix = normalize_suffix(hab)
     else:
         suffix = normalize_suffix(hab) if hab else hab
-    return (mod_num, suffix)
+
+    return mod_num, suffix
+
 
 # ── Procesar y cruzar datos ────────────────────────────────────────────────
 
 def process(hotel_file, censo_file):
 
-    # ── Leer hoteleria ──────────────────────────────────────────────────────
+    # ── Leer Hotelería ──────────────────────────────────────────────────────
+
     hotel_rows = read_rows(hotel_file)
+
     if not hotel_rows:
-        raise ValueError('Plantilla hoteleria vacia')
+        raise ValueError("Plantilla hotelería vacía")
 
     hotel_headers = [normalize(c).upper() for c in hotel_rows[0]]
 
@@ -205,71 +308,83 @@ def process(hotel_file, censo_file):
                 return i
         return None
 
-    idx_hab = find_col(['HABITACI'])
-    idx_mod = find_col(['MODULO', 'MÓDULO'])
-    idx_nom = find_col(['NOMBRE'])
-    idx_rut = find_col(['RUT'])
-    idx_emp = find_col(['EMPRESA'])
-    idx_ger = find_col(['GERENCIA'])
-    idx_tur = find_col(['SISTEMA', 'TURNO', 'NOMBRE DE TURNO'])
-    idx_gen = find_col(['GENERO', 'GÉNERO'])
-    idx_con = find_col(['CONTRATO'])
-    idx_cal = find_col(['CALENDARIO', 'SALTO'])
-    idx_mel = find_col(['MEL'])
+    idx_hab = find_col(["HABITACI"])
+    idx_mod = find_col(["MODULO", "MÓDULO"])
+    idx_nom = find_col(["NOMBRE"])
+    idx_rut = find_col(["RUT"])
+    idx_emp = find_col(["EMPRESA"])
+    idx_ger = find_col(["GERENCIA"])
+    idx_gen = find_col(["GENERO", "GÉNERO"])
+    idx_con = find_col(["CONTRATO"])
+    idx_cal = find_col(["CALENDARIO", "SALTO"])
+    idx_mel = find_col(["MEL"])
+
+    # Se separan las columnas para no confundir SISTEMA TURNO con NOMBRE DE TURNO.
+    idx_sis_tur = find_col(["SISTEMA TURNO"])
+    idx_nom_tur = find_col(["NOMBRE DE TURNO"])
 
     if idx_hab is None or idx_mod is None:
         raise ValueError(
-            f'Plantilla hoteleria: faltan columnas HABITACION/MODULO. '
-            f'Columnas detectadas: {hotel_headers}'
+            "Plantilla hotelería: faltan columnas HABITACION/MODULO. "
+            f"Columnas detectadas: {hotel_headers}"
         )
 
     hotel_data = {}
     hotel_rows_loaded = 0
+
     for row in hotel_rows[1:]:
         if not any(row):
             continue
-        raw_hab = normalize(row[idx_hab] if idx_hab < len(row) else '')
-        raw_mod = normalize(row[idx_mod] if idx_mod < len(row) else '')
+
+        raw_hab = normalize(row[idx_hab] if idx_hab < len(row) else "")
+        raw_mod = normalize(row[idx_mod] if idx_mod < len(row) else "")
+
         if not raw_hab or not raw_mod:
             continue
 
         def get(idx):
-            return normalize(row[idx] if idx is not None and idx < len(row) else '')
+            return normalize(row[idx] if idx is not None and idx < len(row) else "")
 
         persona = {
-            'nombre':    get(idx_nom),
-            'rut':       get(idx_rut),
-            'empresa':   get(idx_emp),
-            'gerencia':  get(idx_ger),
-            'turno':     get(idx_tur),
-            'genero':    get(idx_gen),
-            'contrato':  get(idx_con),
-            'calendario':get(idx_cal),
-            'co_mel':    get(idx_mel),
+            "nombre": get(idx_nom),
+            "rut": get(idx_rut),
+            "empresa": get(idx_emp),
+            "gerencia": get(idx_ger),
+            "sistema_turno": get(idx_sis_tur),
+            "turno": get(idx_nom_tur) or get(idx_sis_tur),
+            "genero": get(idx_gen),
+            "contrato": get(idx_con),
+            "calendario": get(idx_cal),
+            "co_mel": get(idx_mel),
         }
+
         key = hotel_key(raw_mod, raw_hab)
         hotel_data.setdefault(key, []).append(persona)
         hotel_rows_loaded += 1
 
-    # ── Leer censo ─────────────────────────────────────────────────────────
+    # ── Leer Censo ─────────────────────────────────────────────────────────
+
     censo_rows = read_rows(censo_file)
+
     if not censo_rows:
-        raise ValueError('Plantilla censo vacia')
+        raise ValueError("Plantilla censo vacía")
 
     censo_headers = [normalize(c) for c in censo_rows[0]]
     day_indices = [(i, h) for i, h in enumerate(censo_headers) if h.isdigit()]
     total_dias = len(day_indices)
 
     if total_dias == 0:
-        raise ValueError('Plantilla censo: no se encontraron columnas de dias (1, 2, 3...)')
+        raise ValueError("Plantilla censo: no se encontraron columnas de días 1, 2, 3...")
 
     mod_col2 = 0
     hab_col2 = 1
+
     for i, h in enumerate(censo_headers):
         hu = h.upper()
-        if 'MODULO' in hu or 'MÓDULO' in hu:
+
+        if "MODULO" in hu or "MÓDULO" in hu:
             mod_col2 = i
-        elif 'HABITACI' in hu:
+        elif "HABITACI" in hu:
             hab_col2 = i
 
     rooms = []
@@ -278,223 +393,375 @@ def process(hotel_file, censo_file):
     for row in censo_rows[1:]:
         if not any(row):
             continue
-        raw_mod = normalize(row[mod_col2] if mod_col2 < len(row) else '')
-        raw_hab = normalize(row[hab_col2] if hab_col2 < len(row) else '')
+
+        raw_mod = normalize(row[mod_col2] if mod_col2 < len(row) else "")
+        raw_hab = normalize(row[hab_col2] if hab_col2 < len(row) else "")
+
         if not raw_mod or not raw_hab:
             continue
 
         key = census_key(raw_mod, raw_hab)
 
         daily = []
+
         for i, _ in day_indices:
             v = row[i] if i < len(row) else None
+
             try:
-                daily.append(int(float(str(v))) if v not in (None, '', 'None') else 0)
+                daily.append(int(float(str(v))) if v not in (None, "", "None") else 0)
             except (ValueError, TypeError):
                 daily.append(0)
 
-        dias_ocupados   = sum(1 for v in daily if v > 0)
-        personas_dia    = sum(daily)
+        dias_ocupados = sum(1 for v in daily if v > 0)
+        personas_dia = sum(daily)
         camas_estimadas = max(daily) if daily else 0
-        asignados       = hotel_data.get(key, [])
+
+        asignados = hotel_data.get(key, [])
+
         if asignados:
             matched_count += 1
-        empresas = list({p['empresa'] for p in asignados if p['empresa']})
-        turnos   = list({p['turno']   for p in asignados if p['turno']})
+
+        empresas = sorted({p["empresa"] for p in asignados if p["empresa"]})
+        turnos = sorted({p["turno"] for p in asignados if p["turno"]})
 
         rooms.append({
-            'modulo':          raw_mod,
-            'habitacion':      raw_hab,
-            'key_str':         f'{key[0]}-{key[1]}',
-            'daily':           daily,
-            'dias_ocupados':   dias_ocupados,
-            'dias_vacios':     total_dias - dias_ocupados,
-            'personas_dia':    personas_dia,
-            'camas_estimadas': camas_estimadas,
-            'pct_ocupacion':   round(dias_ocupados / total_dias * 100, 1) if total_dias else 0,
-            'asignados':       asignados,
-            'n_asignados':     len(asignados),
-            'empresas':        empresas,
-            'turnos':          turnos,
+            "modulo": raw_mod,
+            "mod_num": key[0],
+            "habitacion": raw_hab,
+            "key_str": f"{key[0]}-{key[1]}",
+            "daily": daily,
+            "dias_ocupados": dias_ocupados,
+            "dias_vacios": total_dias - dias_ocupados,
+            "personas_dia": personas_dia,
+            "camas_estimadas": camas_estimadas,
+            "pct_ocupacion": round(dias_ocupados / total_dias * 100, 1) if total_dias else 0,
+            "asignados": asignados,
+            "n_asignados": len(asignados),
+            "empresas": empresas,
+            "turnos": turnos,
         })
 
     if not rooms:
-        raise ValueError('No se encontraron habitaciones en el censo')
+        raise ValueError("No se encontraron habitaciones en el censo")
 
-    # ── Diagnostico de matching ────────────────────────────────────────────
+    # ── Diagnóstico de matching ────────────────────────────────────────────
+
     hotel_sample = [
-        {'mod': str(k[0]), 'hab': str(k[1])}
+        {"mod": str(k[0]), "hab": str(k[1])}
         for k in sorted(hotel_data.keys())[:5]
     ]
+
     censo_sample = []
+
     for row in censo_rows[1:]:
         if not any(row):
             continue
-        rm = normalize(row[mod_col2] if mod_col2 < len(row) else '')
-        rh = normalize(row[hab_col2] if hab_col2 < len(row) else '')
+
+        rm = normalize(row[mod_col2] if mod_col2 < len(row) else "")
+        rh = normalize(row[hab_col2] if hab_col2 < len(row) else "")
+
         if rm and rh:
             k = census_key(rm, rh)
-            censo_sample.append({'mod': str(k[0]), 'hab': str(k[1])})
+            censo_sample.append({"mod": str(k[0]), "hab": str(k[1])})
+
         if len(censo_sample) >= 5:
             break
 
     match_info = {
-        'hotel_rows':   hotel_rows_loaded,
-        'censo_rooms':  len(rooms),
-        'matched':      matched_count,
-        'hotel_sample': hotel_sample,
-        'censo_sample': censo_sample,
+        "hotel_rows": hotel_rows_loaded,
+        "censo_rooms": len(rooms),
+        "matched": matched_count,
+        "hotel_sample": hotel_sample,
+        "censo_sample": censo_sample,
     }
 
-    # ── Estadisticas por modulo ────────────────────────────────────────────
+    # ── Estadísticas por módulo ────────────────────────────────────────────
+
     modulos = {}
+
     for r in rooms:
-        m = r['modulo']
+        m = r["modulo"]
+
         if m not in modulos:
+            camas_reales = get_real_beds(m)
+
             modulos[m] = {
-                'modulo': m, 'habitaciones': 0, 'camas': 0,
-                'personas_asignadas': 0, 'dias_ocupados': 0,
-                'dias_totales': 0, 'personas_dia_total': 0,
+                "modulo": m,
+                "mod_num": extract_mod_num(m),
+                "habitaciones": 0,
+                "camas": 0,
+                "camas_reales": camas_reales,
+                "personas_asignadas": 0,
+                "dias_ocupados": 0,
+                "dias_totales": 0,
+                "personas_dia_total": 0,
             }
-        modulos[m]['habitaciones']       += 1
-        modulos[m]['camas']              += r['camas_estimadas']
-        modulos[m]['personas_asignadas'] += r['n_asignados']
-        modulos[m]['dias_ocupados']      += r['dias_ocupados']
-        modulos[m]['dias_totales']       += total_dias
-        modulos[m]['personas_dia_total'] += r['personas_dia']
+
+        modulos[m]["habitaciones"] += 1
+        modulos[m]["camas"] += r["camas_estimadas"]
+        modulos[m]["personas_asignadas"] += r["n_asignados"]
+        modulos[m]["dias_ocupados"] += r["dias_ocupados"]
+        modulos[m]["dias_totales"] += total_dias
+        modulos[m]["personas_dia_total"] += r["personas_dia"]
 
     for m in modulos.values():
-        m['pct_ocupacion'] = round(
-            m['dias_ocupados'] / m['dias_totales'] * 100, 1
-        ) if m['dias_totales'] else 0
+        m["pct_ocupacion"] = round(
+            m["dias_ocupados"] / m["dias_totales"] * 100,
+            1
+        ) if m["dias_totales"] else 0
 
-    module_list = sorted(modulos.values(), key=lambda x: x['modulo'])
+        cr = m["camas_reales"]
 
-    # ── Estadisticas por empresa ───────────────────────────────────────────
+        if cr and total_dias:
+            m["pct_cap_real"] = round(
+                m["personas_dia_total"] / (cr * total_dias) * 100,
+                1
+            )
+        else:
+            m["pct_cap_real"] = None
+
+    module_list = sorted(
+        modulos.values(),
+        key=lambda x: x["mod_num"] or 9999
+    )
+
+    # ── Estadísticas por empresa ───────────────────────────────────────────
+
     empresas = {}
+
     def get_emp(name):
         if name not in empresas:
             empresas[name] = {
-                'empresa': name, 'habitaciones': 0, 'personas': 0,
-                'dias_ocupados': 0, 'dias_totales': 0, 'dias_perdidos': 0,
+                "empresa": name,
+                "habitaciones": 0,
+                "personas": 0,
+                "dias_ocupados": 0,
+                "dias_totales": 0,
+                "dias_perdidos": 0,
             }
+
         return empresas[name]
 
     for r in rooms:
-        for p in r['asignados']:
-            get_emp(p['empresa'] or 'Sin empresa')['personas'] += 1
-        tag_emps = r['empresas'] if r['empresas'] else (
-            ['Sin asignar'] if not r['asignados'] else []
+        for p in r["asignados"]:
+            get_emp(p["empresa"] or "Sin empresa")["personas"] += 1
+
+        tag_emps = r["empresas"] if r["empresas"] else (
+            ["Sin asignar"] if not r["asignados"] else []
         )
+
         for emp in tag_emps:
             e = get_emp(emp)
-            e['habitaciones']  += 1
-            e['dias_ocupados'] += r['dias_ocupados']
-            e['dias_totales']  += total_dias
-            e['dias_perdidos'] += r['dias_vacios']
+            e["habitaciones"] += 1
+            e["dias_ocupados"] += r["dias_ocupados"]
+            e["dias_totales"] += total_dias
+            e["dias_perdidos"] += r["dias_vacios"]
 
     for e in empresas.values():
-        e['pct_ocupacion'] = round(
-            e['dias_ocupados'] / e['dias_totales'] * 100, 1
-        ) if e['dias_totales'] else 0
+        e["pct_ocupacion"] = round(
+            e["dias_ocupados"] / e["dias_totales"] * 100,
+            1
+        ) if e["dias_totales"] else 0
 
-    empresa_list = sorted(empresas.values(), key=lambda x: x['dias_perdidos'], reverse=True)
+    empresa_list = sorted(
+        empresas.values(),
+        key=lambda x: x["dias_perdidos"],
+        reverse=True
+    )
 
-    total_hab   = len(rooms)
-    total_asig  = sum(r['n_asignados'] for r in rooms)
-    total_oc    = sum(r['dias_ocupados'] for r in rooms)
-    total_pct   = round(total_oc / (total_hab * total_dias) * 100, 1) if total_hab * total_dias else 0
-    total_camas = sum(r['camas_estimadas'] for r in rooms)
+    # ── Totales generales ──────────────────────────────────────────────────
 
-    company_names = sorted({p['empresa'] for r in rooms for p in r['asignados'] if p['empresa']})
-    turno_names   = sorted({p['turno']   for r in rooms for p in r['asignados'] if p['turno']})
-    modulo_names  = sorted({r['modulo']  for r in rooms})
+    total_hab = len(rooms)
+    total_asig = sum(r["n_asignados"] for r in rooms)
+    total_oc = sum(r["dias_ocupados"] for r in rooms)
+    total_camas = sum(r["camas_estimadas"] for r in rooms)
+    total_personas_dia = sum(r["personas_dia"] for r in rooms)
 
-    sorted_rooms = sorted(rooms, key=lambda x: (x['modulo'], x['habitacion']))
+    total_pct = round(
+        total_oc / (total_hab * total_dias) * 100,
+        1
+    ) if total_hab * total_dias else 0
 
-    # Datos compactos para JS (sin lista asignados completa)
+    # Camas reales solo de los módulos presentes en el censo.
+    total_camas_reales = sum(
+        m["camas_reales"] or 0
+        for m in modulos.values()
+    )
+
+    total_pct_cap_real = round(
+        total_personas_dia / (total_camas_reales * total_dias) * 100,
+        1
+    ) if total_camas_reales and total_dias else 0
+
+    company_names = sorted({
+        p["empresa"]
+        for r in rooms
+        for p in r["asignados"]
+        if p["empresa"]
+    })
+
+    turno_names = sorted({
+        p["turno"]
+        for r in rooms
+        for p in r["asignados"]
+        if p["turno"]
+    })
+
+    modulo_names = sorted(
+        {r["modulo"] for r in rooms},
+        key=lambda x: extract_mod_num(x) or 9999
+    )
+
+    sorted_rooms = sorted(
+        rooms,
+        key=lambda x: (
+            extract_mod_num(x["modulo"]) or 9999,
+            normalize(x["habitacion"])
+        )
+    )
+
+    module_capacity_map = {
+        m["modulo"]: m["camas_reales"] or 0
+        for m in module_list
+    }
+
+    # Datos compactos para JavaScript.
     rooms_js = [
         {
-            'modulo':          r['modulo'],
-            'habitacion':      r['habitacion'],
-            'empresas':        r['empresas'],
-            'turnos':          r['turnos'],
-            'daily':           r['daily'],
-            'dias_ocupados':   r['dias_ocupados'],
-            'dias_vacios':     r['dias_vacios'],
-            'personas_dia':    r['personas_dia'],
-            'camas_estimadas': r['camas_estimadas'],
-            'pct_ocupacion':   r['pct_ocupacion'],
-            'n_asignados':     r['n_asignados'],
+            "modulo": r["modulo"],
+            "mod_num": r["mod_num"],
+            "habitacion": r["habitacion"],
+            "empresas": r["empresas"],
+            "turnos": r["turnos"],
+            "daily": r["daily"],
+            "dias_ocupados": r["dias_ocupados"],
+            "dias_vacios": r["dias_vacios"],
+            "personas_dia": r["personas_dia"],
+            "camas_estimadas": r["camas_estimadas"],
+            "pct_ocupacion": r["pct_ocupacion"],
+            "n_asignados": r["n_asignados"],
         }
         for r in sorted_rooms
     ]
 
     return {
-        'total_habitaciones': total_hab,
-        'total_asignadas':    total_asig,
-        'total_camas':        total_camas,
-        'total_dias':         total_dias,
-        'pct_ocupacion':      total_pct,
-        'modulos':            module_list,
-        'empresas':           empresa_list,
-        'rooms':              sorted_rooms,
-        'rooms_js':           rooms_js,
-        'company_names':      company_names,
-        'turno_names':        turno_names,
-        'modulo_names':       modulo_names,
-        'match_info':         match_info,
-        'day_labels':         list(range(1, total_dias + 1)),
+        "total_habitaciones": total_hab,
+        "total_asignadas": total_asig,
+        "total_camas": total_camas,
+        "total_camas_reales": total_camas_reales,
+        "total_personas_dia": total_personas_dia,
+        "total_pct_cap_real": total_pct_cap_real,
+        "total_dias": total_dias,
+        "pct_ocupacion": total_pct,
+        "modulos": module_list,
+        "empresas": empresa_list,
+        "rooms": sorted_rooms,
+        "rooms_js": rooms_js,
+        "company_names": company_names,
+        "turno_names": turno_names,
+        "modulo_names": modulo_names,
+        "module_capacity_map": module_capacity_map,
+        "match_info": match_info,
+        "day_labels": list(range(1, total_dias + 1)),
     }
+
 
 # ── Rutas ──────────────────────────────────────────────────────────────────
 
-MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio',
-         'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
+MESES = [
+    "Enero",
+    "Febrero",
+    "Marzo",
+    "Abril",
+    "Mayo",
+    "Junio",
+    "Julio",
+    "Agosto",
+    "Septiembre",
+    "Octubre",
+    "Noviembre",
+    "Diciembre",
+]
 
-@app.route('/')
+
+@app.route("/")
 def index():
     now = now_santiago()
-    return render_template('index.html',
-        mes=now.month, anio=now.year, meses=MESES,
-        anios=list(range(now.year - 1, now.year + 2)))
 
-@app.route('/download/hoteleria')
+    return render_template(
+        "index.html",
+        mes=now.month,
+        anio=now.year,
+        meses=MESES,
+        anios=list(range(now.year - 1, now.year + 2)),
+    )
+
+
+@app.route("/download/hoteleria")
 def download_hoteleria():
     out = generate_hoteleria()
-    return send_file(out,
-        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        as_attachment=True, download_name='plantilla_hoteleria.xlsx')
 
-@app.route('/download/censo')
+    return send_file(
+        out,
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        as_attachment=True,
+        download_name="plantilla_hoteleria.xlsx",
+    )
+
+
+@app.route("/download/censo")
 def download_censo():
     now = now_santiago()
-    mes  = request.args.get('mes',  now.month,  type=int)
-    anio = request.args.get('anio', now.year,   type=int)
-    out = generate_censo(mes, anio)
-    return send_file(out,
-        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        as_attachment=True,
-        download_name=f'plantilla_censo_{anio}_{str(mes).zfill(2)}.xlsx')
 
-@app.route('/procesar', methods=['POST'])
+    mes = request.args.get("mes", now.month, type=int)
+    anio = request.args.get("anio", now.year, type=int)
+
+    if mes < 1 or mes > 12:
+        mes = now.month
+
+    if anio < now.year - 5 or anio > now.year + 5:
+        anio = now.year
+
+    out = generate_censo(mes, anio)
+
+    return send_file(
+        out,
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        as_attachment=True,
+        download_name=f"plantilla_censo_{anio}_{str(mes).zfill(2)}.xlsx",
+    )
+
+
+@app.route("/procesar", methods=["POST"])
 def procesar():
-    hotel_file = request.files.get('hoteleria')
-    censo_file = request.files.get('censo')
+    hotel_file = request.files.get("hoteleria")
+    censo_file = request.files.get("censo")
     now = now_santiago()
+
     if not hotel_file or not censo_file:
-        return render_template('index.html',
-            error='Debes subir ambas plantillas.',
-            mes=now.month, anio=now.year, meses=MESES,
-            anios=list(range(now.year - 1, now.year + 2)))
+        return render_template(
+            "index.html",
+            error="Debes subir ambas plantillas.",
+            mes=now.month,
+            anio=now.year,
+            meses=MESES,
+            anios=list(range(now.year - 1, now.year + 2)),
+        )
+
     try:
         results = process(hotel_file, censo_file)
-        return render_template('resultados.html', r=results)
-    except Exception as e:
-        return render_template('index.html',
-            error=f'Error al procesar: {str(e)}',
-            mes=now.month, anio=now.year, meses=MESES,
-            anios=list(range(now.year - 1, now.year + 2)))
+        return render_template("resultados.html", r=results)
 
-if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5001)
+    except Exception as e:
+        return render_template(
+            "index.html",
+            error=f"Error al procesar: {str(e)}",
+            mes=now.month,
+            anio=now.year,
+            meses=MESES,
+            anios=list(range(now.year - 1, now.year + 2)),
+        )
+
+
+if __name__ == "__main__":
+    app.run(debug=True, host="0.0.0.0", port=5001)
