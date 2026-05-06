@@ -4,7 +4,6 @@
 
 {% block content %}
 
-<!-- Page header -->
 <div class="row mb-4">
   <div class="col">
     <h2 class="fw-bold" style="color:var(--aramark-red);">
@@ -21,15 +20,14 @@
 </div>
 {% endif %}
 
-<!-- ── PASO 1: Descargar plantillas ─────────────────────────────────────── -->
 <div class="card mb-4 shadow-sm">
   <div class="card-header card-header-red d-flex align-items-center gap-2">
     <i class="bi bi-download"></i> Paso 1 — Descargar Plantillas
   </div>
+
   <div class="card-body">
     <div class="row g-3">
 
-      <!-- Plantilla Hoteleria -->
       <div class="col-md-6">
         <div class="border rounded p-3 h-100 d-flex flex-column">
           <div class="d-flex align-items-center gap-2 mb-2">
@@ -39,12 +37,14 @@
               <div class="text-muted small">Base de datos de trabajadores y habitaciones</div>
             </div>
           </div>
+
           <ul class="small text-muted mb-3 ps-3">
             <li>HABITACION, MODULO, RUT, NOMBRE</li>
             <li>EMPRESA, N CONTRATO, GERENCIA</li>
             <li>SISTEMA TURNO, CALENDARIO ASIGNADO EN SALTO</li>
             <li>CO MEL, GENERO, NOMBRE DE TURNO</li>
           </ul>
+
           <div class="mt-auto">
             <a href="/download/hoteleria" class="btn btn-aramark w-100">
               <i class="bi bi-download me-1"></i> Descargar plantilla_hoteleria.xlsx
@@ -53,7 +53,6 @@
         </div>
       </div>
 
-      <!-- Plantilla Censo -->
       <div class="col-md-6">
         <div class="border rounded p-3 h-100 d-flex flex-column">
           <div class="d-flex align-items-center gap-2 mb-2">
@@ -63,6 +62,7 @@
               <div class="text-muted small">Ocupación diaria por habitación</div>
             </div>
           </div>
+
           <p class="small text-muted mb-2">
             Columnas: <strong>Modulo</strong>, <strong>Habitacion</strong> y un número por cada día del mes seleccionado.<br>
             Ingresa <strong>0</strong> = vacío, <strong>1</strong> o más = personas presentes.
@@ -77,6 +77,7 @@
                   {% endfor %}
                 </select>
               </div>
+
               <div class="col-6">
                 <select name="anio" class="form-select form-select-sm">
                   {% for y in anios %}
@@ -85,6 +86,7 @@
                 </select>
               </div>
             </div>
+
             <button type="submit" class="btn btn-aramark w-100">
               <i class="bi bi-download me-1"></i> Descargar Censo del Mes
             </button>
@@ -96,21 +98,19 @@
   </div>
 </div>
 
-<!-- ── PASO 2: Subir archivos ────────────────────────────────────────────── -->
 <div class="card shadow-sm">
   <div class="card-header card-header-red d-flex align-items-center gap-2">
     <i class="bi bi-upload"></i> Paso 2 — Subir Archivos y Analizar
   </div>
+
   <div class="card-body">
     <form action="/procesar" method="post" enctype="multipart/form-data" id="formProcesar">
       <div class="row g-3">
-
         <div class="col-md-6">
           <label class="form-label fw-semibold">
             <i class="bi bi-file-earmark-spreadsheet text-success me-1"></i>Archivo Hotelería (.xlsx)
           </label>
-          <input type="file" name="hoteleria" accept=".xlsx" required
-                 class="form-control" id="fileHoteleria">
+          <input type="file" name="hoteleria" accept=".xlsx" required class="form-control" id="fileHoteleria">
           <div class="form-text">La plantilla de hotelería completada con los trabajadores.</div>
         </div>
 
@@ -118,17 +118,46 @@
           <label class="form-label fw-semibold">
             <i class="bi bi-file-earmark-spreadsheet text-primary me-1"></i>Archivo Censo Ontracking (.xlsx)
           </label>
-          <input type="file" name="censo" accept=".xlsx" required
-                 class="form-control" id="fileCenso">
+          <input type="file" name="censo" accept=".xlsx" required class="form-control" id="fileCenso">
           <div class="form-text">El censo con la ocupación diaria del mes.</div>
         </div>
+      </div>
 
+      <div class="row g-3 mt-2">
+        <div class="col-md-6">
+          <label class="form-label fw-semibold">
+            <i class="bi bi-calendar-month me-1"></i>Mes del reporte
+          </label>
+          <select name="mes_reporte" class="form-select" required>
+            {% for m in meses %}
+              <option value="{{ loop.index }}" {% if loop.index == mes %}selected{% endif %}>
+                {{ m }}
+              </option>
+            {% endfor %}
+          </select>
+          <div class="form-text">Mes correspondiente al archivo de censo.</div>
+        </div>
+
+        <div class="col-md-6">
+          <label class="form-label fw-semibold">
+            <i class="bi bi-calendar-event me-1"></i>Año del reporte
+          </label>
+          <select name="anio_reporte" class="form-select" required>
+            {% for y in anios %}
+              <option value="{{ y }}" {% if y == anio %}selected{% endif %}>
+                {{ y }}
+              </option>
+            {% endfor %}
+          </select>
+          <div class="form-text">Año correspondiente al archivo de censo.</div>
+        </div>
       </div>
 
       <div class="mt-4 d-flex gap-2 align-items-center">
         <button type="submit" class="btn btn-aramark px-4" id="btnProcesar">
           <i class="bi bi-graph-up-arrow me-2"></i>Generar Análisis
         </button>
+
         <span class="text-muted small" id="loadingMsg" style="display:none;">
           <span class="spinner-border spinner-border-sm me-1"></span>Procesando…
         </span>
@@ -141,14 +170,12 @@
 
 {% block extra_js %}
 <script>
-// make enumerate available in jinja — handled server-side, but let's add UX polish
 document.getElementById('formProcesar').addEventListener('submit', function() {
   document.getElementById('btnProcesar').disabled = true;
   document.getElementById('loadingMsg').style.display = 'inline-flex';
 });
 
-// Show selected filenames
-['fileHoteleria','fileCenso'].forEach(id => {
+['fileHoteleria', 'fileCenso'].forEach(id => {
   document.getElementById(id).addEventListener('change', function() {
     const label = this.closest('.col-md-6').querySelector('.form-text');
     if (this.files[0]) label.textContent = '✓ ' + this.files[0].name;
