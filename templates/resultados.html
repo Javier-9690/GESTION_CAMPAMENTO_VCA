@@ -545,26 +545,145 @@ let fTurno = '';
 
 let chartDiario;
 
-function getFiltered() {
-  return ROOMS_DATA.filter(r => {
-    if (fMod && r.modulo !== fMod) return false;
+function sortModules(a, b) {
+  const na = Number((String(a).match(/\d+/) || [9999])[0]);
+  const nb = Number((String(b).match(/\d+/) || [9999])[0]);
 
+  if (na !== nb) return na - nb;
+
+  return String(a).localeCompare(String(b), 'es', { numeric: true });
+}
+
+function matchesFilters(room, ignoreField = null) {
+  if (ignoreField !== 'modulo' && fMod && room.modulo !== fMod) {
+    return false;
+  }
+
+  if (ignoreField !== 'empresa') {
     if (fEmp === '__sin__') {
-      if (r.n_asignados > 0) return false;
-    } else if (fEmp && !r.empresas.includes(fEmp)) {
+      if (room.n_asignados > 0) return false;
+    } else if (fEmp && !room.empresas.includes(fEmp)) {
       return false;
     }
+  }
 
-    if (fTurno && !r.turnos.includes(fTurno)) return false;
+  if (ignoreField !== 'turno' && fTurno && !room.turnos.includes(fTurno)) {
+    return false;
+  }
 
-    return true;
+  return true;
+}
+
+function getFiltered() {
+  return ROOMS_DATA.filter(room => matchesFilters(room));
+}
+
+function buildAvailableOptions(ignoreField) {
+  const baseRooms = ROOMS_DATA.filter(room => matchesFilters(room, ignoreField));
+
+  const modulos = new Set();
+  const empresas = new Set();
+  const turnos = new Set();
+
+  let hasSinAsignar = false;
+
+  baseRooms.forEach(room => {
+    if (room.modulo) {
+      modulos.add(room.modulo);
+    }
+
+    if (room.n_asignados === 0) {
+      hasSinAsignar = true;
+    }
+
+    room.empresas.forEach(emp => {
+      if (emp) empresas.add(emp);
+    });
+
+    room.turnos.forEach(turno => {
+      if (turno) turnos.add(turno);
+    });
   });
+
+  return {
+    modulos: Array.from(modulos).sort(sortModules),
+    empresas: Array.from(empresas).sort((a, b) => a.localeCompare(b, 'es')),
+    turnos: Array.from(turnos).sort((a, b) => a.localeCompare(b, 'es')),
+    hasSinAsignar: hasSinAsignar
+  };
+}
+
+function rebuildSelect(selectId, defaultText, options, selectedValue, extraOption = null) {
+  const select = document.getElementById(selectId);
+
+  select.innerHTML = '';
+
+  const defaultOption = document.createElement('option');
+  defaultOption.value = '';
+  defaultOption.textContent = defaultText;
+  select.appendChild(defaultOption);
+
+  options.forEach(value => {
+    const option = document.createElement('option');
+    option.value = value;
+    option.textContent = value;
+    select.appendChild(option);
+  });
+
+  if (extraOption) {
+    const option = document.createElement('option');
+    option.value = extraOption.value;
+    option.textContent = extraOption.text;
+    select.appendChild(option);
+  }
+
+  const availableValues = Array.from(select.options).map(option => option.value);
+
+  if (availableValues.includes(selectedValue)) {
+    select.value = selectedValue;
+  } else {
+    select.value = '';
+  }
+}
+
+function updateFilterOptions() {
+  const modOptions = buildAvailableOptions('modulo');
+  const empOptions = buildAvailableOptions('empresa');
+  const turnoOptions = buildAvailableOptions('turno');
+
+  rebuildSelect(
+    'filtMod',
+    'Todos los módulos',
+    modOptions.modulos,
+    fMod
+  );
+
+  rebuildSelect(
+    'filtEmp',
+    'Todas las empresas',
+    empOptions.empresas,
+    fEmp,
+    empOptions.hasSinAsignar ? { value: '__sin__', text: 'Sin asignar' } : null
+  );
+
+  rebuildSelect(
+    'filtTurno',
+    'Todos los turnos',
+    turnoOptions.turnos,
+    fTurno
+  );
+
+  fMod = document.getElementById('filtMod').value;
+  fEmp = document.getElementById('filtEmp').value;
+  fTurno = document.getElementById('filtTurno').value;
 }
 
 function applyFilters() {
   fMod = document.getElementById('filtMod').value;
   fEmp = document.getElementById('filtEmp').value;
   fTurno = document.getElementById('filtTurno').value;
+
+  updateFilterOptions();
 
   const filtered = getFiltered();
 
@@ -576,15 +695,23 @@ function applyFilters() {
 }
 
 function resetFilters() {
-  document.getElementById('filtMod').value = '';
-  document.getElementById('filtEmp').value = '';
-  document.getElementById('filtTurno').value = '';
-
   fMod = '';
   fEmp = '';
   fTurno = '';
 
-  applyFilters();
+  document.getElementById('filtMod').value = '';
+  document.getElementById('filtEmp').value = '';
+  document.getElementById('filtTurno').value = '';
+
+  updateFilterOptions();
+
+  const filtered = getFiltered();
+
+  updateKPIs(filtered);
+  updateDailyChart(filtered);
+  updateRoomsTable(filtered);
+  updateModulosTable();
+  updateEmpresasTable();
 }
 
 function updateKPIs(filtered) {
@@ -666,28 +793,26 @@ function updateRoomsTable(filtered) {
 }
 
 function updateModulosTable() {
-  if (!fMod) {
-    document.querySelectorAll('#tblModulos tbody tr').forEach(r => {
-      r.style.display = '';
-    });
-    return;
-  }
+  const rows = document.querySelectorAll('#tblModulos tbody tr');
 
-  document.querySelectorAll('#tblModulos tbody tr').forEach(r => {
-    r.style.display = r.dataset.modulo === fMod ? '' : 'none';
+  rows.forEach(row => {
+    if (!fMod) {
+      row.style.display = '';
+    } else {
+      row.style.display = row.dataset.modulo === fMod ? '' : 'none';
+    }
   });
 }
 
 function updateEmpresasTable() {
-  if (!fEmp || fEmp === '__sin__') {
-    document.querySelectorAll('#tblEmpresas tbody tr').forEach(r => {
-      r.style.display = '';
-    });
-    return;
-  }
+  const rows = document.querySelectorAll('#tblEmpresas tbody tr');
 
-  document.querySelectorAll('#tblEmpresas tbody tr').forEach(r => {
-    r.style.display = r.dataset.empresa === fEmp ? '' : 'none';
+  rows.forEach(row => {
+    if (!fEmp || fEmp === '__sin__') {
+      row.style.display = '';
+    } else {
+      row.style.display = row.dataset.empresa === fEmp ? '' : 'none';
+    }
   });
 }
 
@@ -811,7 +936,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  document.getElementById('roomTableCount').textContent = ROOMS_DATA.length + ' habitaciones';
+  updateFilterOptions();
+  applyFilters();
 });
 </script>
 {% endblock %}
