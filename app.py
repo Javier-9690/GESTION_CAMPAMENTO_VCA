@@ -319,7 +319,6 @@ def process(hotel_file, censo_file):
     idx_cal = find_col(["CALENDARIO", "SALTO"])
     idx_mel = find_col(["MEL"])
 
-    # Se separan las columnas para no confundir SISTEMA TURNO con NOMBRE DE TURNO.
     idx_sis_tur = find_col(["SISTEMA TURNO"])
     idx_nom_tur = find_col(["NOMBRE DE TURNO"])
 
@@ -444,6 +443,28 @@ def process(hotel_file, censo_file):
     if not rooms:
         raise ValueError("No se encontraron habitaciones en el censo")
 
+    # ── Asignar camas reales por habitación ────────────────────────────────
+    # REAL_BEDS está a nivel módulo. Para permitir filtros por empresa/turno,
+    # se prorratea la capacidad real del módulo entre las habitaciones del censo.
+
+    rooms_by_module = {}
+
+    for room in rooms:
+        rooms_by_module.setdefault(room["modulo"], []).append(room)
+
+    for modulo, module_rooms in rooms_by_module.items():
+        camas_reales_modulo = get_real_beds(modulo) or 0
+        habitaciones_modulo = len(module_rooms)
+
+        camas_reales_por_habitacion = (
+            camas_reales_modulo / habitaciones_modulo
+            if habitaciones_modulo and camas_reales_modulo
+            else 0
+        )
+
+        for room in module_rooms:
+            room["camas_reales"] = round(camas_reales_por_habitacion, 2)
+
     # ── Diagnóstico de matching ────────────────────────────────────────────
 
     hotel_sample = [
@@ -489,7 +510,6 @@ def process(hotel_file, censo_file):
                 "modulo": m,
                 "mod_num": extract_mod_num(m),
                 "habitaciones": 0,
-                "camas": 0,
                 "camas_reales": camas_reales,
                 "personas_asignadas": 0,
                 "dias_ocupados": 0,
@@ -498,7 +518,6 @@ def process(hotel_file, censo_file):
             }
 
         modulos[m]["habitaciones"] += 1
-        modulos[m]["camas"] += r["camas_estimadas"]
         modulos[m]["personas_asignadas"] += r["n_asignados"]
         modulos[m]["dias_ocupados"] += r["dias_ocupados"]
         modulos[m]["dias_totales"] += total_dias
@@ -574,7 +593,6 @@ def process(hotel_file, censo_file):
     total_hab = len(rooms)
     total_asig = sum(r["n_asignados"] for r in rooms)
     total_oc = sum(r["dias_ocupados"] for r in rooms)
-    total_camas = sum(r["camas_estimadas"] for r in rooms)
     total_personas_dia = sum(r["personas_dia"] for r in rooms)
 
     total_pct = round(
@@ -582,7 +600,6 @@ def process(hotel_file, censo_file):
         1
     ) if total_hab * total_dias else 0
 
-    # Camas reales solo de los módulos presentes en el censo.
     total_camas_reales = sum(
         m["camas_reales"] or 0
         for m in modulos.values()
@@ -626,6 +643,8 @@ def process(hotel_file, censo_file):
     }
 
     # Datos compactos para JavaScript.
+    # Incluye asignados compactos para filtrar empresa/turno con más precisión.
+
     rooms_js = [
         {
             "modulo": r["modulo"],
@@ -637,9 +656,18 @@ def process(hotel_file, censo_file):
             "dias_ocupados": r["dias_ocupados"],
             "dias_vacios": r["dias_vacios"],
             "personas_dia": r["personas_dia"],
-            "camas_estimadas": r["camas_estimadas"],
+            "camas_reales": r.get("camas_reales", 0),
             "pct_ocupacion": r["pct_ocupacion"],
             "n_asignados": r["n_asignados"],
+            "asignados": [
+                {
+                    "empresa": p.get("empresa", ""),
+                    "turno": p.get("turno", ""),
+                    "nombre": p.get("nombre", ""),
+                    "rut": p.get("rut", ""),
+                }
+                for p in r["asignados"]
+            ],
         }
         for r in sorted_rooms
     ]
@@ -647,7 +675,6 @@ def process(hotel_file, censo_file):
     return {
         "total_habitaciones": total_hab,
         "total_asignadas": total_asig,
-        "total_camas": total_camas,
         "total_camas_reales": total_camas_reales,
         "total_personas_dia": total_personas_dia,
         "total_pct_cap_real": total_pct_cap_real,
