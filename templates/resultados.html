@@ -4,6 +4,7 @@
 
 {% block extra_head %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
 <style>
   :root {
@@ -203,54 +204,44 @@
     Días evaluados: <strong>{{ r.total_dias_evaluados }}</strong> de <strong>{{ r.total_dias }}</strong>
   </div>
 
-  <form id="downloadReportForm" action="/download/reporte" method="post" target="_blank" onsubmit="return prepareExcelReport();">
-    <input type="hidden" name="report_json" id="reportJson">
-    <button type="submit" class="btn btn-success">
-      <i class="bi bi-file-earmark-excel me-1"></i> Descargar reporte Excel
-    </button>
-  </form>
+  <button type="button" class="btn btn-success" onclick="downloadExcelReport()">
+    <i class="bi bi-file-earmark-excel me-1"></i> Descargar reporte Excel
+  </button>
 </div>
 
 <div class="row g-3 mb-4" id="kpiRow">
-  <div class="col-6 col-md-2">
+  <div class="col-6 col-md">
     <div class="stat-card">
       <div class="stat-num" id="kpiHab">{{ r.total_habitaciones }}</div>
       <div class="stat-lbl"><i class="bi bi-door-open me-1"></i>Habitaciones filtro</div>
     </div>
   </div>
 
-  <div class="col-6 col-md-2">
+  <div class="col-6 col-md">
     <div class="stat-card">
       <div class="stat-num" id="kpiCamasFiltro">{{ "%.1f"|format(r.total_camas_reales) }}</div>
       <div class="stat-lbl"><i class="bi bi-building me-1"></i>Camas reales filtro</div>
     </div>
   </div>
 
-  <div class="col-6 col-md-2">
+  <div class="col-6 col-md">
     <div class="stat-card">
       <div class="stat-num" id="kpiAsig">{{ r.total_asignadas }}</div>
       <div class="stat-lbl"><i class="bi bi-people me-1"></i>Personas asignadas</div>
     </div>
   </div>
 
-  <div class="col-6 col-md-2">
+  <div class="col-6 col-md">
     <div class="stat-card">
       <div class="stat-num" id="kpiPersonasDia">{{ r.total_personas_dia }}</div>
       <div class="stat-lbl"><i class="bi bi-calendar-check me-1"></i>Personas-día</div>
     </div>
   </div>
 
-  <div class="col-6 col-md-2">
-    <div class="stat-card">
-      <div class="stat-num" id="kpiPct">{{ r.pct_ocupacion }}%</div>
-      <div class="stat-lbl"><i class="bi bi-graph-up me-1"></i>Ocupación hab.</div>
-    </div>
-  </div>
-
-  <div class="col-6 col-md-2">
+  <div class="col-6 col-md">
     <div class="stat-card">
       <div class="stat-num" id="kpiUsoReal">{{ r.total_pct_cap_real }}%</div>
-      <div class="stat-lbl"><i class="bi bi-speedometer2 me-1"></i>Uso capacidad real</div>
+      <div class="stat-lbl"><i class="bi bi-speedometer2 me-1"></i>Uso real</div>
     </div>
   </div>
 </div>
@@ -283,8 +274,7 @@
             <th class="text-center">Personas presentes</th>
             <th class="text-center">Habitaciones ocupadas</th>
             <th class="text-center">Camas reales filtro</th>
-            <th class="text-center">Ocupación habitaciones</th>
-            <th class="text-center">Uso capacidad real</th>
+            <th class="text-center">Uso real</th>
           </tr>
         </thead>
         <tbody id="dailyUsageBody"></tbody>
@@ -297,7 +287,7 @@
   <div class="col-lg-7">
     <div class="card shadow-sm h-100">
       <div class="card-header card-header-red">
-        <i class="bi bi-building me-1"></i> Ocupación por módulo según filtros
+        <i class="bi bi-building me-1"></i> Uso real por módulo según filtros
       </div>
 
       <div class="card-body p-0">
@@ -311,7 +301,6 @@
                 <th class="text-center">Asignados</th>
                 <th class="text-center">Días ocupados</th>
                 <th class="text-center">Personas-día</th>
-                <th class="text-center">Ocupación hab.</th>
                 <th class="text-center">Uso real</th>
               </tr>
             </thead>
@@ -325,7 +314,7 @@
   <div class="col-lg-5">
     <div class="card shadow-sm h-100">
       <div class="card-header card-header-red">
-        <i class="bi bi-briefcase me-1"></i> Empresas según filtros
+        <i class="bi bi-briefcase me-1"></i> Uso real por empresa según filtros
       </div>
 
       <div class="card-body p-0">
@@ -336,8 +325,10 @@
                 <th>Empresa</th>
                 <th class="text-center">Habitaciones</th>
                 <th class="text-center">Asignados</th>
+                <th class="text-center">Camas reales</th>
+                <th class="text-center">Personas-día</th>
                 <th class="text-center">Días perdidos</th>
-                <th class="text-center">Ocupación</th>
+                <th class="text-center">Uso real</th>
               </tr>
             </thead>
             <tbody id="empresasBody"></tbody>
@@ -380,7 +371,7 @@
             <th class="text-center">Camas reales</th>
             <th class="text-center">Días ocupados</th>
             <th class="text-center">Días vacíos</th>
-            <th class="text-center">Ocupación</th>
+            <th class="text-center">Uso real</th>
             <th>Empresa(s)</th>
             <th>Turno(s)</th>
             <th>Asignados</th>
@@ -389,6 +380,11 @@
 
         <tbody id="roomsBody">
           {% for room in r.rooms %}
+          {% set uso_room = 0 %}
+          {% if r.total_dias_evaluados and room.camas_reales %}
+            {% set uso_room = (room.personas_dia / (room.camas_reales * r.total_dias_evaluados) * 100) %}
+          {% endif %}
+
           <tr
             data-modulo="{{ room.modulo }}"
             data-habitacion="{{ room.habitacion }}"
@@ -406,9 +402,8 @@
             </td>
 
             <td class="text-center">
-              {% set p = room.pct_ocupacion %}
-              <span class="pct-badge {% if p >= 80 %}pct-high{% elif p >= 50 %}pct-mid{% else %}pct-low{% endif %}">
-                {{ p }}%
+              <span class="pct-badge {% if uso_room >= 80 %}pct-high{% elif uso_room >= 50 %}pct-mid{% else %}pct-low{% endif %}">
+                {{ "%.1f"|format(uso_room) }}%
               </span>
             </td>
 
@@ -698,19 +693,9 @@ function getKpiPayload(filtered) {
     return s + countMatchingAssignments(room);
   }, 0);
 
-  const ocDias = filtered.reduce((s, room) => {
-    return s + Number(room.dias_ocupados || 0);
-  }, 0);
-
   const personasDia = filtered.reduce((s, room) => {
     return s + Number(room.personas_dia || 0);
   }, 0);
-
-  const totalDiasHabitacion = hab * TOTAL_DIAS_EVALUADOS;
-
-  const ocupacionHabitaciones = totalDiasHabitacion
-    ? (ocDias / totalDiasHabitacion * 100).toFixed(1)
-    : '0.0';
 
   const usoCapacidadReal = camasRealesFiltro && TOTAL_DIAS_EVALUADOS
     ? (personasDia / (camasRealesFiltro * TOTAL_DIAS_EVALUADOS) * 100).toFixed(1)
@@ -721,7 +706,6 @@ function getKpiPayload(filtered) {
     camas_reales: Number(camasRealesFiltro.toFixed(1)),
     asignados: asig,
     personas_dia: personasDia,
-    ocupacion_habitaciones: Number(ocupacionHabitaciones),
     uso_capacidad_real: Number(usoCapacidadReal)
   };
 }
@@ -733,7 +717,6 @@ function updateKPIs(filtered) {
   document.getElementById('kpiCamasFiltro').textContent = kpis.camas_reales.toFixed(1);
   document.getElementById('kpiAsig').textContent = kpis.asignados;
   document.getElementById('kpiPersonasDia').textContent = kpis.personas_dia;
-  document.getElementById('kpiPct').textContent = kpis.ocupacion_habitaciones.toFixed(1) + '%';
   document.getElementById('kpiUsoReal').textContent = kpis.uso_capacidad_real.toFixed(1) + '%';
   document.getElementById('countBadge').textContent = kpis.habitaciones + ' hab.';
 }
@@ -778,8 +761,6 @@ function buildUsoDiarioPayload(filtered) {
     return s + Number(room.camas_reales || 0);
   }, 0);
 
-  const habitacionesFiltro = filtered.length;
-
   for (let i = 0; i < TOTAL_DIAS; i++) {
     if (!DAY_IS_ELAPSED[i]) {
       rows.push({
@@ -788,8 +769,7 @@ function buildUsoDiarioPayload(filtered) {
         personas: '',
         habitaciones_ocupadas: '',
         camas_reales: Number(camasRealesFiltro.toFixed(1)),
-        ocupacion_habitaciones: '',
-        uso_capacidad_real: ''
+        uso_real: ''
       });
 
       continue;
@@ -807,10 +787,6 @@ function buildUsoDiarioPayload(filtered) {
       }
     });
 
-    const ocupacionHabitaciones = habitacionesFiltro
-      ? Number((habitacionesOcupadas / habitacionesFiltro * 100).toFixed(1))
-      : 0;
-
     const usoReal = camasRealesFiltro
       ? Number((personas / camasRealesFiltro * 100).toFixed(1))
       : 0;
@@ -821,8 +797,7 @@ function buildUsoDiarioPayload(filtered) {
       personas: personas,
       habitaciones_ocupadas: habitacionesOcupadas,
       camas_reales: Number(camasRealesFiltro.toFixed(1)),
-      ocupacion_habitaciones: ocupacionHabitaciones,
-      uso_capacidad_real: usoReal
+      uso_real: usoReal
     });
   }
 
@@ -842,7 +817,7 @@ function updateDailyUsageTable(filtered) {
     if (row.estado === 'Pendiente') {
       tr.innerHTML = `
         <td class="text-center fw-semibold">${row.dia}</td>
-        <td class="text-center text-muted" colspan="5">Pendiente / fecha futura</td>
+        <td class="text-center text-muted" colspan="4">Pendiente / fecha futura</td>
       `;
     } else {
       tr.innerHTML = `
@@ -851,13 +826,8 @@ function updateDailyUsageTable(filtered) {
         <td class="text-center">${row.habitaciones_ocupadas}</td>
         <td class="text-center">${Number(row.camas_reales).toFixed(1)}</td>
         <td class="text-center">
-          <span class="pct-badge ${pctClass(row.ocupacion_habitaciones)}">
-            ${Number(row.ocupacion_habitaciones).toFixed(1)}%
-          </span>
-        </td>
-        <td class="text-center">
-          <span class="pct-badge ${pctClass(row.uso_capacidad_real)}">
-            ${Number(row.uso_capacidad_real).toFixed(1)}%
+          <span class="pct-badge ${pctClass(row.uso_real)}">
+            ${Number(row.uso_real).toFixed(1)}%
           </span>
         </td>
       `;
@@ -892,12 +862,6 @@ function buildModuloPayload(filtered) {
   });
 
   return Object.values(grouped).sort((a, b) => sortModules(a.modulo, b.modulo)).map(item => {
-    const totalDiasHab = item.habitaciones * TOTAL_DIAS_EVALUADOS;
-
-    const ocupacion = totalDiasHab
-      ? Number((item.dias_ocupados / totalDiasHab * 100).toFixed(1))
-      : 0;
-
     const usoReal = item.camas_reales && TOTAL_DIAS_EVALUADOS
       ? Number((item.personas_dia / (item.camas_reales * TOTAL_DIAS_EVALUADOS) * 100).toFixed(1))
       : 0;
@@ -909,7 +873,6 @@ function buildModuloPayload(filtered) {
       asignados: item.asignados,
       dias_ocupados: item.dias_ocupados,
       personas_dia: item.personas_dia,
-      ocupacion_habitaciones: ocupacion,
       uso_real: usoReal
     };
   });
@@ -933,9 +896,6 @@ function updateModuleSummaryTable(filtered) {
       <td class="text-center">${item.dias_ocupados}</td>
       <td class="text-center">${item.personas_dia}</td>
       <td class="text-center">
-        <span class="pct-badge ${pctClass(item.ocupacion_habitaciones)}">${Number(item.ocupacion_habitaciones).toFixed(1)}%</span>
-      </td>
-      <td class="text-center">
         <span class="pct-badge ${pctClass(item.uso_real)}">${Number(item.uso_real).toFixed(1)}%</span>
       </td>
     `;
@@ -953,9 +913,9 @@ function buildEmpresaPayload(filtered) {
         empresa: name,
         habitaciones: 0,
         asignados: 0,
-        diasOcupados: 0,
-        diasTotales: 0,
-        diasPerdidos: 0,
+        camas_reales: 0,
+        personas_dia: 0,
+        dias_perdidos: 0,
       };
     }
 
@@ -967,9 +927,9 @@ function buildEmpresaPayload(filtered) {
       const g = ensureCompany('Sin asignar');
 
       g.habitaciones += 1;
-      g.diasOcupados += Number(room.dias_ocupados || 0);
-      g.diasTotales += TOTAL_DIAS_EVALUADOS;
-      g.diasPerdidos += Number(room.dias_vacios || 0);
+      g.camas_reales += Number(room.camas_reales || 0);
+      g.personas_dia += Number(room.personas_dia || 0);
+      g.dias_perdidos += Number(room.dias_vacios || 0);
 
       return;
     }
@@ -987,29 +947,31 @@ function buildEmpresaPayload(filtered) {
       const g = ensureCompany(empresa);
 
       g.habitaciones += 1;
+      g.camas_reales += Number(room.camas_reales || 0);
+      g.personas_dia += Number(room.personas_dia || 0);
+      g.dias_perdidos += Number(room.dias_vacios || 0);
+
       g.asignados += room.asignados.filter(person => {
         if (person.empresa !== empresa) return false;
         if (fTurno && person.turno !== fTurno) return false;
         return true;
       }).length;
-
-      g.diasOcupados += Number(room.dias_ocupados || 0);
-      g.diasTotales += TOTAL_DIAS_EVALUADOS;
-      g.diasPerdidos += Number(room.dias_vacios || 0);
     });
   });
 
-  return Object.values(grouped).sort((a, b) => b.diasPerdidos - a.diasPerdidos).map(item => {
-    const ocupacion = item.diasTotales
-      ? Number((item.diasOcupados / item.diasTotales * 100).toFixed(1))
+  return Object.values(grouped).sort((a, b) => b.dias_perdidos - a.dias_perdidos).map(item => {
+    const usoReal = item.camas_reales && TOTAL_DIAS_EVALUADOS
+      ? Number((item.personas_dia / (item.camas_reales * TOTAL_DIAS_EVALUADOS) * 100).toFixed(1))
       : 0;
 
     return {
       empresa: item.empresa,
       habitaciones: item.habitaciones,
       asignados: item.asignados,
-      dias_perdidos: item.diasPerdidos,
-      ocupacion: ocupacion
+      camas_reales: Number(item.camas_reales.toFixed(1)),
+      personas_dia: item.personas_dia,
+      dias_perdidos: item.dias_perdidos,
+      uso_real: usoReal
     };
   });
 }
@@ -1028,14 +990,24 @@ function updateCompanySummaryTable(filtered) {
       <td class="fw-semibold">${item.empresa}</td>
       <td class="text-center">${item.habitaciones}</td>
       <td class="text-center">${item.asignados}</td>
+      <td class="text-center">${Number(item.camas_reales).toFixed(1)}</td>
+      <td class="text-center">${item.personas_dia}</td>
       <td class="text-center text-danger fw-bold">${item.dias_perdidos}</td>
       <td class="text-center">
-        <span class="pct-badge ${pctClass(item.ocupacion)}">${Number(item.ocupacion).toFixed(1)}%</span>
+        <span class="pct-badge ${pctClass(item.uso_real)}">${Number(item.uso_real).toFixed(1)}%</span>
       </td>
     `;
 
     body.appendChild(tr);
   });
+}
+
+function getRoomUsoReal(room) {
+  const camas = Number(room.camas_reales || 0);
+
+  if (!camas || !TOTAL_DIAS_EVALUADOS) return 0;
+
+  return Number((Number(room.personas_dia || 0) / (camas * TOTAL_DIAS_EVALUADOS) * 100).toFixed(1));
 }
 
 function buildHabitacionesPayload(filtered) {
@@ -1050,7 +1022,7 @@ function buildHabitacionesPayload(filtered) {
       camas_reales: Number(Number(room.camas_reales || 0).toFixed(1)),
       dias_ocupados: room.dias_ocupados,
       dias_vacios: room.dias_vacios,
-      ocupacion: room.pct_ocupacion,
+      uso_real: getRoomUsoReal(room),
       empresas: room.empresas.join(' | '),
       turnos: room.turnos.join(' | '),
       asignados: asignados
@@ -1137,29 +1109,115 @@ function updateRoomsTable(filtered) {
   document.getElementById('roomTableCount').textContent = vis + ' habitaciones';
 }
 
-function prepareExcelReport() {
+function appendSheet(wb, name, rows) {
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+
+  const colWidths = rows[0].map((_, colIndex) => {
+    let maxLen = 10;
+
+    rows.forEach(row => {
+      const value = row[colIndex] === undefined || row[colIndex] === null ? '' : String(row[colIndex]);
+      maxLen = Math.max(maxLen, value.length);
+    });
+
+    return { wch: Math.min(maxLen + 2, 45) };
+  });
+
+  ws['!cols'] = colWidths;
+
+  XLSX.utils.book_append_sheet(wb, ws, name.substring(0, 31));
+}
+
+function downloadExcelReport() {
   const filtered = getFiltered();
+  const kpis = getKpiPayload(filtered);
 
-  const payload = {
-    periodo: REPORT_PERIOD,
-    total_dias: TOTAL_DIAS,
-    total_dias_evaluados: TOTAL_DIAS_EVALUADOS,
-    filtros: {
-      modulo: fMod || '',
-      empresa: fEmp === '__sin__' ? 'Sin asignar' : (fEmp || ''),
-      turno: fTurno || ''
-    },
-    kpis: getKpiPayload(filtered),
-    uso_diario: buildUsoDiarioPayload(filtered),
-    modulos: buildModuloPayload(filtered),
-    empresas: buildEmpresaPayload(filtered),
-    habitaciones: buildHabitacionesPayload(filtered),
-    habitacion_dia: buildHabitacionDiaPayload(filtered)
-  };
+  const wb = XLSX.utils.book_new();
 
-  document.getElementById('reportJson').value = JSON.stringify(payload);
+  appendSheet(wb, 'Resumen', [
+    ['Campo', 'Valor'],
+    ['Periodo', REPORT_PERIOD],
+    ['Módulo', fMod || 'Todos'],
+    ['Empresa', fEmp === '__sin__' ? 'Sin asignar' : (fEmp || 'Todas')],
+    ['Turno', fTurno || 'Todos'],
+    ['Días calendario', TOTAL_DIAS],
+    ['Días evaluados', TOTAL_DIAS_EVALUADOS],
+    ['Habitaciones filtro', kpis.habitaciones],
+    ['Camas reales filtro', kpis.camas_reales],
+    ['Personas asignadas', kpis.asignados],
+    ['Personas-día', kpis.personas_dia],
+    ['Uso real %', kpis.uso_capacidad_real],
+  ]);
 
-  return true;
+  appendSheet(wb, 'Uso diario', [
+    ['Día', 'Estado', 'Personas presentes', 'Habitaciones ocupadas', 'Camas reales filtro', 'Uso real %'],
+    ...buildUsoDiarioPayload(filtered).map(r => [
+      r.dia,
+      r.estado,
+      r.personas,
+      r.habitaciones_ocupadas,
+      r.camas_reales,
+      r.uso_real,
+    ])
+  ]);
+
+  appendSheet(wb, 'Resumen módulos', [
+    ['Módulo', 'Habitaciones', 'Camas reales', 'Asignados', 'Días ocupados', 'Personas-día', 'Uso real %'],
+    ...buildModuloPayload(filtered).map(r => [
+      r.modulo,
+      r.habitaciones,
+      r.camas_reales,
+      r.asignados,
+      r.dias_ocupados,
+      r.personas_dia,
+      r.uso_real,
+    ])
+  ]);
+
+  appendSheet(wb, 'Resumen empresas', [
+    ['Empresa', 'Habitaciones', 'Asignados', 'Camas reales', 'Personas-día', 'Días perdidos', 'Uso real %'],
+    ...buildEmpresaPayload(filtered).map(r => [
+      r.empresa,
+      r.habitaciones,
+      r.asignados,
+      r.camas_reales,
+      r.personas_dia,
+      r.dias_perdidos,
+      r.uso_real,
+    ])
+  ]);
+
+  appendSheet(wb, 'Detalle habitaciones', [
+    ['Módulo', 'Habitación', 'Camas reales', 'Días ocupados', 'Días vacíos', 'Uso real %', 'Empresas', 'Turnos', 'Asignados'],
+    ...buildHabitacionesPayload(filtered).map(r => [
+      r.modulo,
+      r.habitacion,
+      r.camas_reales,
+      r.dias_ocupados,
+      r.dias_vacios,
+      r.uso_real,
+      r.empresas,
+      r.turnos,
+      r.asignados,
+    ])
+  ]);
+
+  appendSheet(wb, 'Habitación día', [
+    ['Módulo', 'Habitación', 'Camas reales', ...DAY_LABELS.map(d => 'Día ' + d)],
+    ...buildHabitacionDiaPayload(filtered).map(r => [
+      r.modulo,
+      r.habitacion,
+      r.camas_reales,
+      ...r.dias,
+    ])
+  ]);
+
+  const cleanPeriod = REPORT_PERIOD
+    .toLowerCase()
+    .replace(/\s+/g, '_')
+    .replace(/[^\w\-]/g, '');
+
+  XLSX.writeFile(wb, `reporte_hotel_analytics_${cleanPeriod}.xlsx`);
 }
 
 document.addEventListener('DOMContentLoaded', () => {
