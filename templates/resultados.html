@@ -83,7 +83,7 @@
   }
 
   .stat-card .stat-num {
-    font-size: 1.65rem;
+    font-size: 1.55rem;
     font-weight: 700;
     color: var(--aramark-red);
     line-height: 1;
@@ -105,6 +105,7 @@
     color: #fff;
     font-size: .82rem;
     vertical-align: middle;
+    white-space: nowrap;
   }
 
   .table tbody td {
@@ -139,6 +140,15 @@
     color: #fff;
     font-size: .72rem;
     margin: 1px;
+  }
+
+  .daily-cell-used {
+    background: #d4edda !important;
+    font-weight: 700;
+  }
+
+  .daily-cell-empty {
+    color: #999;
   }
 </style>
 {% endblock %}
@@ -233,21 +243,14 @@
   <div class="col-6 col-md-2">
     <div class="stat-card">
       <div class="stat-num" id="kpiHab">{{ r.total_habitaciones }}</div>
-      <div class="stat-lbl"><i class="bi bi-door-open me-1"></i>Habitaciones</div>
+      <div class="stat-lbl"><i class="bi bi-door-open me-1"></i>Habitaciones filtro</div>
     </div>
   </div>
 
   <div class="col-6 col-md-2">
     <div class="stat-card">
-      <div class="stat-num" id="kpiCamas">{{ r.total_camas }}</div>
-      <div class="stat-lbl"><i class="bi bi-person me-1"></i>Camas estimadas</div>
-    </div>
-  </div>
-
-  <div class="col-6 col-md-2">
-    <div class="stat-card">
-      <div class="stat-num" id="kpiCapReal">{{ r.total_camas_reales }}</div>
-      <div class="stat-lbl"><i class="bi bi-building me-1"></i>Camas reales</div>
+      <div class="stat-num" id="kpiCamasFiltro">{{ "%.1f"|format(r.total_camas_reales) }}</div>
+      <div class="stat-lbl"><i class="bi bi-building me-1"></i>Camas reales filtro</div>
     </div>
   </div>
 
@@ -255,6 +258,13 @@
     <div class="stat-card">
       <div class="stat-num" id="kpiAsig">{{ r.total_asignadas }}</div>
       <div class="stat-lbl"><i class="bi bi-people me-1"></i>Personas asignadas</div>
+    </div>
+  </div>
+
+  <div class="col-6 col-md-2">
+    <div class="stat-card">
+      <div class="stat-num" id="kpiPersonasDia">{{ r.total_personas_dia }}</div>
+      <div class="stat-lbl"><i class="bi bi-calendar-check me-1"></i>Personas-día</div>
     </div>
   </div>
 
@@ -275,7 +285,7 @@
 
 <div class="card shadow-sm mb-4">
   <div class="card-header card-header-red d-flex justify-content-between align-items-center">
-    <span><i class="bi bi-calendar3 me-1"></i> Comportamiento Mensual — Personas por Día</span>
+    <span><i class="bi bi-calendar3 me-1"></i> Comportamiento mensual — Personas por día</span>
     <span class="small text-white-50" id="chartSubtitle">todos los módulos</span>
   </div>
 
@@ -286,16 +296,55 @@
   </div>
 </div>
 
+<div class="card shadow-sm mb-4">
+  <div class="card-header card-header-red d-flex justify-content-between align-items-center">
+    <span><i class="bi bi-calendar-date me-1"></i> Uso diario según filtros</span>
+    <span class="small text-white-50" id="dailyUsageSubtitle">todos los módulos</span>
+  </div>
+
+  <div class="card-body p-0">
+    <div class="table-responsive" style="max-height:360px;">
+      <table class="table table-sm table-striped table-hover mb-0" id="tblUsoDiario">
+        <thead>
+          <tr>
+            <th class="text-center">Día</th>
+            <th class="text-center">Personas presentes</th>
+            <th class="text-center">Habitaciones ocupadas</th>
+            <th class="text-center">Camas reales filtro</th>
+            <th class="text-center">Ocupación habitaciones</th>
+            <th class="text-center">Uso capacidad real</th>
+          </tr>
+        </thead>
+        <tbody id="dailyUsageBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
 <div class="row g-4 mb-4">
   <div class="col-lg-7">
     <div class="card shadow-sm h-100">
       <div class="card-header card-header-red">
-        <i class="bi bi-building me-1"></i> Ocupación por Módulo (%)
+        <i class="bi bi-building me-1"></i> Ocupación por módulo según filtros
       </div>
 
-      <div class="card-body">
-        <div class="chart-wrap">
-          <canvas id="chartModulos"></canvas>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover table-striped mb-0" id="tblModulos">
+            <thead>
+              <tr>
+                <th>Módulo</th>
+                <th class="text-center">Habitaciones</th>
+                <th class="text-center">Camas reales</th>
+                <th class="text-center">Asignados</th>
+                <th class="text-center">Días ocup.</th>
+                <th class="text-center">Personas-día</th>
+                <th class="text-center">Ocupación hab.</th>
+                <th class="text-center">Uso real</th>
+              </tr>
+            </thead>
+            <tbody id="modulosBody"></tbody>
+          </table>
         </div>
       </div>
     </div>
@@ -304,12 +353,23 @@
   <div class="col-lg-5">
     <div class="card shadow-sm h-100">
       <div class="card-header card-header-red">
-        <i class="bi bi-briefcase me-1"></i> Días perdidos por Empresa
+        <i class="bi bi-briefcase me-1"></i> Empresas según filtros
       </div>
 
-      <div class="card-body">
-        <div class="chart-wrap">
-          <canvas id="chartEmpresas"></canvas>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover table-striped mb-0" id="tblEmpresas">
+            <thead>
+              <tr>
+                <th>Empresa</th>
+                <th class="text-center">Habitaciones</th>
+                <th class="text-center">Asignados</th>
+                <th class="text-center">Días perdidos</th>
+                <th class="text-center">Ocupación</th>
+              </tr>
+            </thead>
+            <tbody id="empresasBody"></tbody>
+          </table>
         </div>
       </div>
     </div>
@@ -317,115 +377,16 @@
 </div>
 
 <div class="card shadow-sm mb-4">
-  <div class="card-header card-header-red">
-    <i class="bi bi-grid-3x3-gap me-1"></i> Resumen por Módulo
-  </div>
-
-  <div class="card-body p-0">
-    <div class="table-responsive">
-      <table class="table table-hover table-striped mb-0" id="tblModulos">
-        <thead>
-          <tr>
-            <th>Módulo</th>
-            <th class="text-center">Habitaciones</th>
-            <th class="text-center">Camas estimadas</th>
-            <th class="text-center">Camas reales</th>
-            <th class="text-center">Asignados</th>
-            <th class="text-center">Días ocup.</th>
-            <th class="text-center">Pers./día Σ</th>
-            <th class="text-center">Ocupación hab.</th>
-            <th class="text-center">Uso real</th>
-          </tr>
-        </thead>
-
-        <tbody>
-          {% for m in r.modulos %}
-          <tr data-modulo="{{ m.modulo }}">
-            <td class="fw-semibold">{{ m.modulo }}</td>
-            <td class="text-center">{{ m.habitaciones }}</td>
-            <td class="text-center">{{ m.camas }}</td>
-
-            <td class="text-center">
-              {% if m.camas_reales %}
-                {{ m.camas_reales }}
-              {% else %}
-                <span class="text-muted">—</span>
-              {% endif %}
-            </td>
-
-            <td class="text-center">{{ m.personas_asignadas }}</td>
-            <td class="text-center">{{ m.dias_ocupados }}</td>
-            <td class="text-center">{{ m.personas_dia_total }}</td>
-
-            <td class="text-center">
-              {% set p = m.pct_ocupacion %}
-              <span class="pct-badge {% if p >= 80 %}pct-high{% elif p >= 50 %}pct-mid{% else %}pct-low{% endif %}">
-                {{ p }}%
-              </span>
-              <div class="progress mt-1">
-                <div class="progress-bar" style="width:{{ p }}%"></div>
-              </div>
-            </td>
-
-            <td class="text-center">
-              {% if m.pct_cap_real is not none %}
-                {% set pr = m.pct_cap_real %}
-                <span class="pct-badge {% if pr >= 80 %}pct-high{% elif pr >= 50 %}pct-mid{% else %}pct-low{% endif %}">
-                  {{ pr }}%
-                </span>
-                <div class="progress mt-1">
-                  <div class="progress-bar" style="width:{{ pr }}%"></div>
-                </div>
-              {% else %}
-                <span class="text-muted">—</span>
-              {% endif %}
-            </td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-  </div>
-</div>
-
-<div class="card shadow-sm mb-4">
   <div class="card-header card-header-red d-flex justify-content-between align-items-center">
-    <span><i class="bi bi-briefcase me-1"></i> Ineficiencia por Empresa</span>
-    <span class="small text-white-50">ordenado por días perdidos ↓</span>
+    <span><i class="bi bi-grid me-1"></i> Uso por habitación y día</span>
+    <span class="small text-white-50" id="roomDailySubtitle">habitaciones filtradas</span>
   </div>
 
   <div class="card-body p-0">
-    <div class="table-responsive">
-      <table class="table table-hover table-striped mb-0" id="tblEmpresas">
-        <thead>
-          <tr>
-            <th>Empresa</th>
-            <th class="text-center">Habitaciones</th>
-            <th class="text-center">Personas</th>
-            <th class="text-center">Días ocup.</th>
-            <th class="text-center">Días perdidos</th>
-            <th class="text-center">Ocupación</th>
-          </tr>
-        </thead>
-
-        <tbody>
-          {% for e in r.empresas %}
-          <tr data-empresa="{{ e.empresa }}">
-            <td class="fw-semibold">{{ e.empresa }}</td>
-            <td class="text-center">{{ e.habitaciones }}</td>
-            <td class="text-center">{{ e.personas }}</td>
-            <td class="text-center">{{ e.dias_ocupados }}</td>
-            <td class="text-center text-danger fw-bold">{{ e.dias_perdidos }}</td>
-
-            <td class="text-center">
-              {% set p = e.pct_ocupacion %}
-              <span class="pct-badge {% if p >= 80 %}pct-high{% elif p >= 50 %}pct-mid{% else %}pct-low{% endif %}">
-                {{ p }}%
-              </span>
-            </td>
-          </tr>
-          {% endfor %}
-        </tbody>
+    <div class="table-responsive" style="max-height:420px;">
+      <table class="table table-sm table-bordered mb-0" id="tblRoomDaily">
+        <thead id="roomDailyHead"></thead>
+        <tbody id="roomDailyBody"></tbody>
       </table>
     </div>
   </div>
@@ -433,7 +394,7 @@
 
 <div class="card shadow-sm mb-4">
   <div class="card-header card-header-red">
-    <i class="bi bi-door-open me-1"></i> Detalle por Habitación
+    <i class="bi bi-door-open me-1"></i> Detalle por habitación
     <span class="ms-2 small text-white-50" id="roomTableCount"></span>
   </div>
 
@@ -444,7 +405,7 @@
           <tr>
             <th>Módulo</th>
             <th>Habitación</th>
-            <th class="text-center">Camas</th>
+            <th class="text-center">Camas reales</th>
             <th class="text-center">Días ocup.</th>
             <th class="text-center">Días vacíos</th>
             <th class="text-center">Ocupación</th>
@@ -458,13 +419,18 @@
           {% for room in r.rooms %}
           <tr
             data-modulo="{{ room.modulo }}"
+            data-habitacion="{{ room.habitacion }}"
             data-empresas="{{ room.empresas | join('||') | lower }}"
             data-turnos="{{ room.turnos | join('||') | lower }}"
             data-asig="{{ room.n_asignados }}"
           >
             <td>{{ room.modulo }}</td>
             <td>{{ room.habitacion }}</td>
-            <td class="text-center">{{ room.camas_estimadas }}</td>
+
+            <td class="text-center">
+              {{ "%.1f"|format(room.camas_reales) }}
+            </td>
+
             <td class="text-center">{{ room.dias_ocupados }}</td>
 
             <td class="text-center {% if room.dias_vacios > 0 %}text-danger{% endif %}">
@@ -532,11 +498,6 @@ const DAY_LABELS = {{ r.day_labels | tojson }};
 const ROOMS_DATA = {{ r.rooms_js | tojson }};
 const MODULE_CAPACITY = {{ r.module_capacity_map | tojson }};
 
-const MOD_LABELS = {{ r.modulos | map(attribute='modulo') | list | tojson }};
-const MOD_PCT = {{ r.modulos | map(attribute='pct_ocupacion') | list | tojson }};
-const EMP_LABELS = {{ r.empresas[:15] | map(attribute='empresa') | list | tojson }};
-const EMP_PERDIDOS = {{ r.empresas[:15] | map(attribute='dias_perdidos') | list | tojson }};
-
 const ARAMARK = '#B42318';
 
 let fMod = '';
@@ -554,32 +515,82 @@ function sortModules(a, b) {
   return String(a).localeCompare(String(b), 'es', { numeric: true });
 }
 
-function matchesFilters(room, ignoreField = null) {
-  if (ignoreField !== 'modulo' && fMod && room.modulo !== fMod) {
-    return false;
-  }
+function pctClass(value) {
+  const n = Number(value || 0);
 
+  if (n >= 80) return 'pct-high';
+  if (n >= 50) return 'pct-mid';
+
+  return 'pct-low';
+}
+
+function formatNumber(value, decimals = 1) {
+  const n = Number(value || 0);
+  return n.toFixed(decimals);
+}
+
+function assignmentMatches(person, ignoreField = null) {
   if (ignoreField !== 'empresa') {
     if (fEmp === '__sin__') {
-      if (room.n_asignados > 0) return false;
-    } else if (fEmp && !room.empresas.includes(fEmp)) {
+      return false;
+    }
+
+    if (fEmp && person.empresa !== fEmp) {
       return false;
     }
   }
 
-  if (ignoreField !== 'turno' && fTurno && !room.turnos.includes(fTurno)) {
+  if (ignoreField !== 'turno' && fTurno && person.turno !== fTurno) {
     return false;
   }
 
   return true;
 }
 
+function roomMatchesFilters(room, ignoreField = null) {
+  if (ignoreField !== 'modulo' && fMod && room.modulo !== fMod) {
+    return false;
+  }
+
+  const hasEmpresaOrTurnoFilter =
+    (ignoreField !== 'empresa' && fEmp) ||
+    (ignoreField !== 'turno' && fTurno);
+
+  if (ignoreField !== 'empresa' && fEmp === '__sin__') {
+    if (room.n_asignados > 0) return false;
+    if (ignoreField !== 'turno' && fTurno) return false;
+    return true;
+  }
+
+  if (hasEmpresaOrTurnoFilter) {
+    return room.asignados.some(person => assignmentMatches(person, ignoreField));
+  }
+
+  return true;
+}
+
 function getFiltered() {
-  return ROOMS_DATA.filter(room => matchesFilters(room));
+  return ROOMS_DATA.filter(room => roomMatchesFilters(room));
+}
+
+function countMatchingAssignments(room) {
+  if (fEmp === '__sin__') {
+    return 0;
+  }
+
+  if (!fEmp && !fTurno) {
+    return Number(room.n_asignados || 0);
+  }
+
+  return room.asignados.filter(person => {
+    if (fEmp && person.empresa !== fEmp) return false;
+    if (fTurno && person.turno !== fTurno) return false;
+    return true;
+  }).length;
 }
 
 function buildAvailableOptions(ignoreField) {
-  const baseRooms = ROOMS_DATA.filter(room => matchesFilters(room, ignoreField));
+  const baseRooms = ROOMS_DATA.filter(room => roomMatchesFilters(room, ignoreField));
 
   const modulos = new Set();
   const empresas = new Set();
@@ -592,16 +603,26 @@ function buildAvailableOptions(ignoreField) {
       modulos.add(room.modulo);
     }
 
-    if (room.n_asignados === 0) {
+    if (room.n_asignados === 0 && !fTurno) {
       hasSinAsignar = true;
     }
 
-    room.empresas.forEach(emp => {
-      if (emp) empresas.add(emp);
-    });
+    room.asignados.forEach(person => {
+      const empresaAllowed =
+        ignoreField === 'empresa' ||
+        !fEmp ||
+        fEmp === '__sin__' ||
+        person.empresa === fEmp;
 
-    room.turnos.forEach(turno => {
-      if (turno) turnos.add(turno);
+      const turnoAllowed =
+        ignoreField === 'turno' ||
+        !fTurno ||
+        person.turno === fTurno;
+
+      if (empresaAllowed && turnoAllowed) {
+        if (person.empresa) empresas.add(person.empresa);
+        if (person.turno) turnos.add(person.turno);
+      }
     });
   });
 
@@ -689,9 +710,11 @@ function applyFilters() {
 
   updateKPIs(filtered);
   updateDailyChart(filtered);
+  updateDailyUsageTable(filtered);
+  updateModuleSummaryTable(filtered);
+  updateCompanySummaryTable(filtered);
+  updateRoomDailyTable(filtered);
   updateRoomsTable(filtered);
-  updateModulosTable();
-  updateEmpresasTable();
 }
 
 function resetFilters() {
@@ -709,46 +732,56 @@ function resetFilters() {
 
   updateKPIs(filtered);
   updateDailyChart(filtered);
+  updateDailyUsageTable(filtered);
+  updateModuleSummaryTable(filtered);
+  updateCompanySummaryTable(filtered);
+  updateRoomDailyTable(filtered);
   updateRoomsTable(filtered);
-  updateModulosTable();
-  updateEmpresasTable();
 }
 
 function updateKPIs(filtered) {
   const hab = filtered.length;
-  const camas = filtered.reduce((s, r) => s + Number(r.camas_estimadas || 0), 0);
-  const asig = filtered.reduce((s, r) => s + Number(r.n_asignados || 0), 0);
-  const ocDias = filtered.reduce((s, r) => s + Number(r.dias_ocupados || 0), 0);
-  const personasDia = filtered.reduce((s, r) => s + Number(r.personas_dia || 0), 0);
 
-  const totDias = hab * TOTAL_DIAS;
-  const pct = totDias ? (ocDias / totDias * 100).toFixed(1) : '0.0';
+  const camasRealesFiltro = filtered.reduce((s, room) => {
+    return s + Number(room.camas_reales || 0);
+  }, 0);
 
-  const selectedModules = new Set(filtered.map(r => r.modulo));
-  let camasReales = 0;
+  const asig = filtered.reduce((s, room) => {
+    return s + countMatchingAssignments(room);
+  }, 0);
 
-  selectedModules.forEach(mod => {
-    camasReales += Number(MODULE_CAPACITY[mod] || 0);
-  });
+  const ocDias = filtered.reduce((s, room) => {
+    return s + Number(room.dias_ocupados || 0);
+  }, 0);
 
-  const usoReal = camasReales && TOTAL_DIAS
-    ? (personasDia / (camasReales * TOTAL_DIAS) * 100).toFixed(1)
+  const personasDia = filtered.reduce((s, room) => {
+    return s + Number(room.personas_dia || 0);
+  }, 0);
+
+  const totalDiasHabitacion = hab * TOTAL_DIAS;
+
+  const pctOcupacionHabitaciones = totalDiasHabitacion
+    ? (ocDias / totalDiasHabitacion * 100).toFixed(1)
+    : '0.0';
+
+  const usoCapacidadReal = camasRealesFiltro && TOTAL_DIAS
+    ? (personasDia / (camasRealesFiltro * TOTAL_DIAS) * 100).toFixed(1)
     : '0.0';
 
   document.getElementById('kpiHab').textContent = hab;
-  document.getElementById('kpiCamas').textContent = camas;
-  document.getElementById('kpiCapReal').textContent = camasReales;
+  document.getElementById('kpiCamasFiltro').textContent = camasRealesFiltro.toFixed(1);
   document.getElementById('kpiAsig').textContent = asig;
-  document.getElementById('kpiPct').textContent = pct + '%';
-  document.getElementById('kpiUsoReal').textContent = usoReal + '%';
+  document.getElementById('kpiPersonasDia').textContent = personasDia;
+  document.getElementById('kpiPct').textContent = pctOcupacionHabitaciones + '%';
+  document.getElementById('kpiUsoReal').textContent = usoCapacidadReal + '%';
   document.getElementById('countBadge').textContent = hab + ' hab.';
 }
 
 function buildDailyTotals(filtered) {
   const totals = new Array(TOTAL_DIAS).fill(0);
 
-  filtered.forEach(r => {
-    r.daily.forEach((v, i) => {
+  filtered.forEach(room => {
+    room.daily.forEach((v, i) => {
       totals[i] += Number(v || 0);
     });
   });
@@ -756,32 +789,285 @@ function buildDailyTotals(filtered) {
   return totals;
 }
 
-function updateDailyChart(filtered) {
-  const totals = buildDailyTotals(filtered);
-
-  chartDiario.data.datasets[0].data = totals;
-
-  let sub = [];
+function getFilterSubtitle() {
+  const sub = [];
 
   if (fMod) sub.push(fMod);
   if (fEmp) sub.push(fEmp === '__sin__' ? 'Sin asignar' : fEmp);
   if (fTurno) sub.push(fTurno);
 
-  document.getElementById('chartSubtitle').textContent = sub.length
-    ? sub.join(' · ')
-    : 'todos los módulos';
+  return sub.length ? sub.join(' · ') : 'todos los módulos';
+}
+
+function updateDailyChart(filtered) {
+  const totals = buildDailyTotals(filtered);
+
+  chartDiario.data.datasets[0].data = totals;
+  document.getElementById('chartSubtitle').textContent = getFilterSubtitle();
 
   chartDiario.update();
 }
 
+function updateDailyUsageTable(filtered) {
+  const body = document.getElementById('dailyUsageBody');
+
+  if (!body) return;
+
+  body.innerHTML = '';
+
+  const camasRealesFiltro = filtered.reduce((s, room) => {
+    return s + Number(room.camas_reales || 0);
+  }, 0);
+
+  const habitacionesFiltro = filtered.length;
+
+  for (let i = 0; i < TOTAL_DIAS; i++) {
+    let personas = 0;
+    let habitacionesOcupadas = 0;
+
+    filtered.forEach(room => {
+      const valorDia = Number(room.daily[i] || 0);
+
+      personas += valorDia;
+
+      if (valorDia > 0) {
+        habitacionesOcupadas += 1;
+      }
+    });
+
+    const ocupacionHabitaciones = habitacionesFiltro
+      ? (habitacionesOcupadas / habitacionesFiltro * 100).toFixed(1)
+      : '0.0';
+
+    const usoReal = camasRealesFiltro
+      ? (personas / camasRealesFiltro * 100).toFixed(1)
+      : '0.0';
+
+    const tr = document.createElement('tr');
+
+    tr.innerHTML = `
+      <td class="text-center fw-semibold">${DAY_LABELS[i]}</td>
+      <td class="text-center">${personas}</td>
+      <td class="text-center">${habitacionesOcupadas}</td>
+      <td class="text-center">${camasRealesFiltro.toFixed(1)}</td>
+      <td class="text-center">
+        <span class="pct-badge ${pctClass(ocupacionHabitaciones)}">
+          ${ocupacionHabitaciones}%
+        </span>
+      </td>
+      <td class="text-center">
+        <span class="pct-badge ${pctClass(usoReal)}">
+          ${usoReal}%
+        </span>
+      </td>
+    `;
+
+    body.appendChild(tr);
+  }
+
+  document.getElementById('dailyUsageSubtitle').textContent = getFilterSubtitle();
+}
+
+function updateModuleSummaryTable(filtered) {
+  const body = document.getElementById('modulosBody');
+
+  if (!body) return;
+
+  body.innerHTML = '';
+
+  const grouped = {};
+
+  filtered.forEach(room => {
+    if (!grouped[room.modulo]) {
+      grouped[room.modulo] = {
+        modulo: room.modulo,
+        habitaciones: 0,
+        camasReales: 0,
+        asignados: 0,
+        diasOcupados: 0,
+        personasDia: 0,
+      };
+    }
+
+    grouped[room.modulo].habitaciones += 1;
+    grouped[room.modulo].camasReales += Number(room.camas_reales || 0);
+    grouped[room.modulo].asignados += countMatchingAssignments(room);
+    grouped[room.modulo].diasOcupados += Number(room.dias_ocupados || 0);
+    grouped[room.modulo].personasDia += Number(room.personas_dia || 0);
+  });
+
+  const rows = Object.values(grouped).sort((a, b) => sortModules(a.modulo, b.modulo));
+
+  rows.forEach(item => {
+    const totalDiasHab = item.habitaciones * TOTAL_DIAS;
+
+    const pctOcupacion = totalDiasHab
+      ? (item.diasOcupados / totalDiasHab * 100).toFixed(1)
+      : '0.0';
+
+    const usoReal = item.camasReales && TOTAL_DIAS
+      ? (item.personasDia / (item.camasReales * TOTAL_DIAS) * 100).toFixed(1)
+      : '0.0';
+
+    const tr = document.createElement('tr');
+
+    tr.innerHTML = `
+      <td class="fw-semibold">${item.modulo}</td>
+      <td class="text-center">${item.habitaciones}</td>
+      <td class="text-center">${item.camasReales.toFixed(1)}</td>
+      <td class="text-center">${item.asignados}</td>
+      <td class="text-center">${item.diasOcupados}</td>
+      <td class="text-center">${item.personasDia}</td>
+      <td class="text-center">
+        <span class="pct-badge ${pctClass(pctOcupacion)}">${pctOcupacion}%</span>
+      </td>
+      <td class="text-center">
+        <span class="pct-badge ${pctClass(usoReal)}">${usoReal}%</span>
+      </td>
+    `;
+
+    body.appendChild(tr);
+  });
+}
+
+function updateCompanySummaryTable(filtered) {
+  const body = document.getElementById('empresasBody');
+
+  if (!body) return;
+
+  body.innerHTML = '';
+
+  const grouped = {};
+
+  function ensureCompany(name) {
+    if (!grouped[name]) {
+      grouped[name] = {
+        empresa: name,
+        habitaciones: 0,
+        asignados: 0,
+        diasOcupados: 0,
+        diasTotales: 0,
+        diasPerdidos: 0,
+      };
+    }
+
+    return grouped[name];
+  }
+
+  filtered.forEach(room => {
+    if (room.n_asignados === 0) {
+      const g = ensureCompany('Sin asignar');
+
+      g.habitaciones += 1;
+      g.asignados += 0;
+      g.diasOcupados += Number(room.dias_ocupados || 0);
+      g.diasTotales += TOTAL_DIAS;
+      g.diasPerdidos += Number(room.dias_vacios || 0);
+
+      return;
+    }
+
+    const empresasRoom = new Set();
+
+    room.asignados.forEach(person => {
+      if (fEmp && fEmp !== '__sin__' && person.empresa !== fEmp) return;
+      if (fTurno && person.turno !== fTurno) return;
+
+      if (person.empresa) {
+        empresasRoom.add(person.empresa);
+      }
+    });
+
+    empresasRoom.forEach(empresa => {
+      const g = ensureCompany(empresa);
+
+      g.habitaciones += 1;
+      g.asignados += room.asignados.filter(person => {
+        if (person.empresa !== empresa) return false;
+        if (fTurno && person.turno !== fTurno) return false;
+        return true;
+      }).length;
+
+      g.diasOcupados += Number(room.dias_ocupados || 0);
+      g.diasTotales += TOTAL_DIAS;
+      g.diasPerdidos += Number(room.dias_vacios || 0);
+    });
+  });
+
+  const rows = Object.values(grouped).sort((a, b) => b.diasPerdidos - a.diasPerdidos);
+
+  rows.forEach(item => {
+    const pctOcupacion = item.diasTotales
+      ? (item.diasOcupados / item.diasTotales * 100).toFixed(1)
+      : '0.0';
+
+    const tr = document.createElement('tr');
+
+    tr.innerHTML = `
+      <td class="fw-semibold">${item.empresa}</td>
+      <td class="text-center">${item.habitaciones}</td>
+      <td class="text-center">${item.asignados}</td>
+      <td class="text-center text-danger fw-bold">${item.diasPerdidos}</td>
+      <td class="text-center">
+        <span class="pct-badge ${pctClass(pctOcupacion)}">${pctOcupacion}%</span>
+      </td>
+    `;
+
+    body.appendChild(tr);
+  });
+}
+
+function updateRoomDailyTable(filtered) {
+  const head = document.getElementById('roomDailyHead');
+  const body = document.getElementById('roomDailyBody');
+
+  if (!head || !body) return;
+
+  head.innerHTML = '';
+  body.innerHTML = '';
+
+  const headRow = document.createElement('tr');
+
+  headRow.innerHTML = `
+    <th>Módulo</th>
+    <th>Habitación</th>
+    <th class="text-center">Camas reales</th>
+    ${DAY_LABELS.map(day => `<th class="text-center">${day}</th>`).join('')}
+  `;
+
+  head.appendChild(headRow);
+
+  filtered.forEach(room => {
+    const tr = document.createElement('tr');
+
+    const dayCells = room.daily.map(value => {
+      const n = Number(value || 0);
+      const cls = n > 0 ? 'daily-cell-used' : 'daily-cell-empty';
+
+      return `<td class="text-center ${cls}">${n}</td>`;
+    }).join('');
+
+    tr.innerHTML = `
+      <td>${room.modulo}</td>
+      <td>${room.habitacion}</td>
+      <td class="text-center">${Number(room.camas_reales || 0).toFixed(1)}</td>
+      ${dayCells}
+    `;
+
+    body.appendChild(tr);
+  });
+
+  document.getElementById('roomDailySubtitle').textContent = filtered.length + ' habitaciones filtradas';
+}
+
 function updateRoomsTable(filtered) {
-  const filtSet = new Set(filtered.map(r => r.modulo + '|' + r.habitacion));
+  const filtSet = new Set(filtered.map(room => room.modulo + '|' + room.habitacion));
   const rows = document.querySelectorAll('#roomsBody tr');
 
   let vis = 0;
 
   rows.forEach(row => {
-    const k = row.dataset.modulo + '|' + row.cells[1].textContent.trim();
+    const k = row.dataset.modulo + '|' + row.dataset.habitacion;
     const show = filtSet.has(k);
 
     row.style.display = show ? '' : 'none';
@@ -790,30 +1076,6 @@ function updateRoomsTable(filtered) {
   });
 
   document.getElementById('roomTableCount').textContent = vis + ' habitaciones';
-}
-
-function updateModulosTable() {
-  const rows = document.querySelectorAll('#tblModulos tbody tr');
-
-  rows.forEach(row => {
-    if (!fMod) {
-      row.style.display = '';
-    } else {
-      row.style.display = row.dataset.modulo === fMod ? '' : 'none';
-    }
-  });
-}
-
-function updateEmpresasTable() {
-  const rows = document.querySelectorAll('#tblEmpresas tbody tr');
-
-  rows.forEach(row => {
-    if (!fEmp || fEmp === '__sin__') {
-      row.style.display = '';
-    } else {
-      row.style.display = row.dataset.empresa === fEmp ? '' : 'none';
-    }
-  });
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -865,72 +1127,6 @@ document.addEventListener('DOMContentLoaded', () => {
               size: 11
             }
           }
-        }
-      }
-    }
-  });
-
-  new Chart(document.getElementById('chartModulos'), {
-    type: 'bar',
-    data: {
-      labels: MOD_LABELS,
-      datasets: [{
-        label: 'Ocupación (%)',
-        data: MOD_PCT,
-        backgroundColor: MOD_PCT.map(v => v >= 80 ? '#198754' : v >= 50 ? '#ffc107' : ARAMARK),
-        borderRadius: 3,
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: {
-          display: false
-        }
-      },
-      scales: {
-        y: {
-          min: 0,
-          max: 100,
-          ticks: {
-            callback: v => v + '%'
-          }
-        },
-        x: {
-          ticks: {
-            font: {
-              size: 10
-            }
-          }
-        }
-      }
-    }
-  });
-
-  new Chart(document.getElementById('chartEmpresas'), {
-    type: 'bar',
-    data: {
-      labels: EMP_LABELS,
-      datasets: [{
-        label: 'Días perdidos',
-        data: EMP_PERDIDOS,
-        backgroundColor: ARAMARK,
-        borderRadius: 3,
-      }]
-    },
-    options: {
-      indexAxis: 'y',
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: {
-          display: false
-        }
-      },
-      scales: {
-        x: {
-          beginAtZero: true
         }
       }
     }
